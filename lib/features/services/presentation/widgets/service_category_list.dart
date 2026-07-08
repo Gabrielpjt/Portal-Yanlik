@@ -1,49 +1,131 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../shared/widgets/filter_chips_row.dart';
 import '../../../kategori_layanan/domain/entities/kategori_layanan_entity.dart';
 import 'service_category_card.dart';
 
 class ServiceCategoryList extends StatelessWidget {
   final List<KategoriLayananEntity> categories;
-  final ValueChanged<String>? onServiceTap;
+  final void Function(int serviceId, String serviceTitle)? onServiceTap;
   final Map<String, GlobalKey>? categoryKeys;
+  final String selectedCategoryKey;
+  final String searchKeyword;
+  final bool sortAscending;
+  final ValueChanged<String>? onCategorySelected;
 
   const ServiceCategoryList({
     super.key,
     required this.categories,
     this.onServiceTap,
     this.categoryKeys,
+    this.selectedCategoryKey = 'all',
+    this.searchKeyword = '',
+    this.sortAscending = true,
+    this.onCategorySelected,
   });
+
+  String get _normalizedSearch => searchKeyword.trim().toLowerCase();
 
   int get _totalLayanan {
     return categories.fold<int>(
       0,
-          (total, category) => total + category.jumlahLayanan,
+          (total, category) => total + _serviceItemsFor(category).length,
     );
+  }
+
+  List<KategoriLayananEntity> get _sortedCategories {
+    final items = [...categories];
+    items.sort((a, b) {
+      final comparison = a.nama.toLowerCase().compareTo(b.nama.toLowerCase());
+      return sortAscending ? comparison : -comparison;
+    });
+    return items;
+  }
+
+  List<KategoriLayananEntity> get _visibleCategories {
+    return _sortedCategories.where((category) {
+      if (selectedCategoryKey != 'all' && category.nama != selectedCategoryKey) {
+        return false;
+      }
+
+      if (_normalizedSearch.isEmpty) {
+        return true;
+      }
+
+      final categoryMatches = category.nama.toLowerCase().contains(
+        _normalizedSearch,
+      );
+      final serviceMatches = _serviceItemsFor(category).any(
+            (item) => (item['name'] ?? '').toLowerCase().contains(_normalizedSearch),
+      );
+
+      return categoryMatches || serviceMatches;
+    }).toList();
+  }
+
+  List<Map<String, String>> _serviceItemsFor(KategoriLayananEntity category) {
+    final query = _normalizedSearch;
+    final categoryMatches = category.nama.toLowerCase().contains(query);
+    final items = <Map<String, String>>[];
+
+    for (final layanan in category.layanan) {
+      final rawName = layanan.nama.trim();
+      final normalizedName = rawName.toLowerCase();
+
+      if (rawName.isEmpty || normalizedName == 'tanpa nama') {
+        continue;
+      }
+
+      if (query.isNotEmpty && !categoryMatches && !normalizedName.contains(query)) {
+        continue;
+      }
+
+      items.add({
+        'id': layanan.id.toString(),
+        'name': rawName,
+        'type': 'Layanan',
+      });
+    }
+
+    items.sort((a, b) {
+      final comparison = (a['name'] ?? '').toLowerCase().compareTo(
+        (b['name'] ?? '').toLowerCase(),
+      );
+      return sortAscending ? comparison : -comparison;
+    });
+
+    return items;
+  }
+
+  List<FilterChipItem> get _chips {
+    return [
+      FilterChipItem(
+        key: 'all',
+        label: 'Semua',
+        count: _totalLayanan,
+      ),
+      ..._sortedCategories.map(
+            (category) => FilterChipItem(
+          key: category.nama,
+          label: category.nama,
+          count: _serviceItemsFor(category).length,
+        ),
+      ),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
+    final visibleCategories = _visibleCategories;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildActiveChip('Semua', '$_totalLayanan'),
-              ...categories.take(4).map(
-                    (category) => Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: _buildInactiveChip(
-                    category.nama,
-                    '${category.jumlahLayanan}',
-                  ),
-                ),
-              ),
-            ],
-          ),
+        FilterChipsRow(
+          chips: _chips,
+          selectedKey: selectedCategoryKey,
+          onSelected: onCategorySelected ?? (_) {},
         ),
         const SizedBox(height: 16),
         Container(
@@ -78,104 +160,44 @@ class ServiceCategoryList extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        ...categories.map(
-              (category) => Container(
-            key: categoryKeys?[category.nama],
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: ServiceCategoryCard(
-                title: category.nama,
-                count: '${category.jumlahLayanan} Layanan',
-                description: 'Layanan dan Program',
-                services: category.layanan
-                    .map<Map<String, String>>(
-                      (layanan) => {
-                    'name': layanan.nama,
-                    'type': 'Layanan',
-                  },
-                )
-                    .toList(),
-                programs: const [],
-                isActive: false,
-                onItemTap: (serviceTitle) {
-                  onServiceTap?.call(serviceTitle);
-                },
+        if (visibleCategories.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 28),
+            child: Center(
+              child: Text(
+                'Layanan tidak ditemukan.',
+                style: TextStyle(
+                  color: AppColors.contentSecondary,
+                  fontSize: 14,
+                ),
               ),
             ),
+          )
+        else
+          ...visibleCategories.map(
+                (category) {
+              final services = _serviceItemsFor(category);
+
+              return Container(
+                key: categoryKeys?[category.nama],
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: ServiceCategoryCard(
+                    title: category.nama,
+                    count: '${services.length} Layanan',
+                    description: 'Layanan dan Program',
+                    services: services,
+                    programs: const [],
+                    isActive: selectedCategoryKey == category.nama,
+                    onItemTap: (serviceId, serviceTitle) {
+                      onServiceTap?.call(serviceId, serviceTitle);
+                    },
+                  ),
+                ),
+              );
+            },
           ),
-        ),
       ],
-    );
-  }
-
-  Widget _buildActiveChip(String label, String count) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.brandPrimary,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              count,
-              style: const TextStyle(
-                color: AppColors.brandPrimary,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInactiveChip(String label, String count) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.strokePrimary),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.contentPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            count,
-            style: const TextStyle(
-              color: AppColors.contentSecondary,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

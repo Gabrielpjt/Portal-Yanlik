@@ -12,50 +12,107 @@ class ServiceAccessRemoteDatasource {
 
   ServiceAccessRemoteDatasource(this.apiClient);
 
+  static const int _fetchAllPageLimit = 5;
+  static const int _fetchAllMaxPages = 300;
+
   Future<List<FasyankesModel>> searchFasyankes({
     required String token,
     required int page,
     required int limit,
     String query = '',
     String jenisSarana = '',
+    bool fetchAll = false,
   }) async {
     try {
-      final path = Uri(
-        path: '/fasyankes',
-        queryParameters: <String, String>{
-          'page': page.toString(),
-          'limit': limit.toString(),
-          'pagination': 'true',
-          'q': query,
-          'jenis_sarana': jenisSarana,
-        },
-      ).toString();
+      if (fetchAll) {
+        return _searchAllFasyankes(
+          query: query,
+          jenisSarana: jenisSarana,
+        );
+      }
 
-      final response = await apiClient.get(
-        path,
-        options: _options(token),
+      return _searchFasyankesPage(
+        page: page,
+        limit: limit,
+        query: query,
+        jenisSarana: jenisSarana,
       );
-
-      final body = _readResponseBody(response.data);
-
-      _throwIfFailed(
-        body,
-        fallbackMessage: 'Gagal mengambil fasilitas kesehatan.',
-      );
-
-      final listData = _extractListData(body);
-
-      return listData
-          .whereType<Map>()
-          .map(
-            (item) => FasyankesModel.fromJson(
-          Map<String, dynamic>.from(item),
-        ),
-      )
-          .toList();
     } on DioException catch (error) {
       throw ApiExceptions.fromDioError(error);
     }
+  }
+
+  Future<List<FasyankesModel>> _searchAllFasyankes({
+    required String query,
+    required String jenisSarana,
+  }) async {
+    final collected = <String, FasyankesModel>{};
+
+    for (var page = 1; page <= _fetchAllMaxPages; page++) {
+      final pageItems = await _searchFasyankesPage(
+        page: page,
+        limit: _fetchAllPageLimit,
+        query: query,
+        jenisSarana: jenisSarana,
+      );
+
+      if (pageItems.isEmpty) {
+        break;
+      }
+
+      for (final item in pageItems) {
+        collected[item.id] = item;
+      }
+
+      if (pageItems.length < _fetchAllPageLimit) {
+        break;
+      }
+    }
+
+    return collected.values.toList();
+  }
+
+  Future<List<FasyankesModel>> _searchFasyankesPage({
+    required int page,
+    required int limit,
+    required String query,
+    required String jenisSarana,
+  }) async {
+    final queryParameters = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+      'pagination': 'true',
+      if (query.trim().isNotEmpty) 'q': query.trim(),
+      if (jenisSarana.trim().isNotEmpty) 'jenis_sarana': jenisSarana.trim(),
+    };
+
+    final path = Uri(
+      path: '/publik/fasyankes',
+      queryParameters: queryParameters,
+    ).toString();
+
+    final response = await apiClient.get(
+      path,
+      options: _publicOptions(),
+    );
+
+    final body = _readResponseBody(response.data);
+
+    _throwIfFailed(
+      body,
+      fallbackMessage: 'Gagal mengambil fasilitas kesehatan.',
+    );
+
+    final listData = _extractListData(body);
+
+    return listData
+        .whereType<Map>()
+        .map(
+          (item) => FasyankesModel.fromJson(
+        Map<String, dynamic>.from(item),
+      ),
+    )
+        .toList();
   }
 
   Future<FasyankesModel> getFasyankesDetail({
@@ -68,8 +125,8 @@ class ServiceAccessRemoteDatasource {
 
     try {
       final response = await apiClient.get(
-        '/fasyankes/$id',
-        options: _options(token),
+        '/publik/fasyankes/${id.trim()}',
+        options: _publicOptions(),
       );
 
       final body = _readResponseBody(response.data);
@@ -87,19 +144,12 @@ class ServiceAccessRemoteDatasource {
     }
   }
 
-  Options _options(String token) {
-    final headers = <String, String>{
-      'Accept': 'application/json',
-    };
-
-    // Token optional.
-    // Kalau user belum login, Authorization tidak dikirim.
-    // Kalau user sudah login, token dikirim.
-    if (token.trim().isNotEmpty) {
-      headers['Authorization'] = token;
-    }
-
-    return Options(headers: headers);
+  Options _publicOptions() {
+    return Options(
+      headers: const <String, String>{
+        'Accept': 'application/json',
+      },
+    );
   }
 
   Map<String, dynamic> _readResponseBody(dynamic data) {
@@ -129,14 +179,10 @@ class ServiceAccessRemoteDatasource {
   List<dynamic> _extractListData(Map<String, dynamic> body) {
     final data = body['data'];
 
-    // Format contoh Swagger:
-    // { "data": [ ... ] }
     if (data is List) {
       return data;
     }
 
-    // Format kemungkinan lain:
-    // { "data": { "data": [ ... ] } }
     if (data is Map) {
       final dataMap = Map<String, dynamic>.from(data);
 

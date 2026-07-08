@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../domain/entities/service_detail_entity.dart';
 
 class ServiceDetailSupportSection extends StatefulWidget {
-  final String serviceTitle;
+  final ServiceDetailEntity detail;
 
   const ServiceDetailSupportSection({
     super.key,
-    required this.serviceTitle,
+    required this.detail,
   });
 
   @override
@@ -18,83 +19,20 @@ class ServiceDetailSupportSection extends StatefulWidget {
 
 class _ServiceDetailSupportSectionState
     extends State<ServiceDetailSupportSection> {
-  int? _openedQuestion = 0;
-
-  List<Map<String, String>> get _questions {
-    if (widget.serviceTitle == 'Cari Fasilitas Kesehatan') {
-      return const [
-        {
-          'question': 'Apa itu verifikasi BPJS?',
-          'answer':
-          'Fasilitas kesehatan yang terverifikasi BPJS adalah rumah sakit, '
-              'klinik, atau puskesmas yang telah terdaftar dan bekerja sama '
-              'dengan BPJS Kesehatan. Anda dapat menggunakan kartu BPJS '
-              'untuk berobat di fasilitas tersebut.',
-        },
-        {
-          'question': 'Apakah semua fasilitas buka 24 jam?',
-          'answer':
-          'Tidak semua fasilitas kesehatan beroperasi selama 24 jam. '
-              'Jam operasional dapat berbeda pada setiap fasilitas.',
-        },
-        {
-          'question':
-          'Apa perbedaan antara Rumah Sakit, Klinik, dan Puskesmas?',
-          'answer':
-          'Rumah sakit menyediakan layanan yang lebih lengkap, klinik '
-              'melayani kebutuhan tertentu, sedangkan puskesmas merupakan '
-              'fasilitas kesehatan tingkat pertama.',
-        },
-      ];
-    }
-
-    if (widget.serviceTitle == 'Pengurusan Akta Kelahiran') {
-      return const [
-        {
-          'question': 'Siapa yang dapat mengajukan Akta Kelahiran?',
-          'answer':
-          'Pengajuan dapat dilakukan oleh orang tua, wali, atau pihak '
-              'yang diberikan kuasa sesuai ketentuan yang berlaku.',
-        },
-        {
-          'question':
-          'Apakah pengurusan Akta Kelahiran dikenakan biaya?',
-          'answer':
-          'Pengurusan Akta Kelahiran melalui layanan resmi pemerintah '
-              'tidak dikenakan biaya.',
-        },
-        {
-          'question':
-          'Berapa lama proses penerbitan Akta Kelahiran?',
-          'answer':
-          'Waktu penerbitan bergantung pada kelengkapan dokumen dan '
-              'proses verifikasi dari instansi terkait.',
-        },
-      ];
-    }
-
-    return const [
-      {
-        'question': 'Bagaimana cara mengakses layanan ini?',
-        'answer':
-        'Klik tombol Akses layanan, kemudian ikuti petunjuk yang tersedia.',
-      },
-      {
-        'question': 'Apakah layanan ini dikenakan biaya?',
-        'answer':
-        'Informasi mengenai biaya dapat dilihat pada portal resmi layanan.',
-      },
-    ];
-  }
+  final Set<int> _openedQuestions = <int>{};
 
   @override
   Widget build(BuildContext context) {
+    final faqItems = widget.detail.faq;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const _SectionTitle(title: 'Kanal Pengaduan'),
         const SizedBox(height: 14),
-        const _ComplaintChannelChips(),
+        _ComplaintChannelChips(
+          channels: widget.detail.kanalPengaduan,
+        ),
         const SizedBox(height: 14),
         const _ComplaintCard(),
         const Divider(
@@ -105,24 +43,38 @@ class _ServiceDetailSupportSectionState
           title: 'Pertanyaan Seputar Layanan',
         ),
         const SizedBox(height: 12),
-        ...List.generate(
-          _questions.length,
-              (index) {
-            final question = _questions[index];
-            final isOpened = _openedQuestion == index;
+        if (faqItems.isEmpty)
+          const Text(
+            'Belum ada pertanyaan seputar layanan ini.',
+            style: TextStyle(
+              color: AppColors.contentSecondary,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          )
+        else
+          ...List.generate(
+            faqItems.length,
+                (index) {
+              final item = faqItems[index];
+              final isOpened = _openedQuestions.contains(index);
 
-            return _QuestionItem(
-              question: question['question']!,
-              answer: question['answer']!,
-              isOpened: isOpened,
-              onTap: () {
-                setState(() {
-                  _openedQuestion = isOpened ? null : index;
-                });
-              },
-            );
-          },
-        ),
+              return _QuestionItem(
+                question: item.pertanyaan,
+                answer: item.jawaban,
+                isOpened: isOpened,
+                onTap: () {
+                  setState(() {
+                    if (isOpened) {
+                      _openedQuestions.remove(index);
+                    } else {
+                      _openedQuestions.add(index);
+                    }
+                  });
+                },
+              );
+            },
+          ),
         const SizedBox(height: 12),
         const _HelpCard(),
       ],
@@ -152,21 +104,37 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _ComplaintChannelChips extends StatelessWidget {
-  const _ComplaintChannelChips();
+  final List<ServiceComplaintEntity> channels;
+
+  const _ComplaintChannelChips({
+    required this.channels,
+  });
 
   @override
   Widget build(BuildContext context) {
+    if (channels.isEmpty) {
+      return const Text(
+        'Belum ada kanal pengaduan khusus untuk layanan ini.',
+        style: TextStyle(
+          color: AppColors.contentSecondary,
+          fontSize: 14,
+          height: 1.5,
+        ),
+      );
+    }
+
     return Wrap(
       spacing: 10,
       runSpacing: 10,
-      children: const [
-        _ComplaintTopChip(
-          label: 'Whatsapp Aduan',
-        ),
-        _ComplaintTopChip(
-          label: 'Email Dinas',
-        ),
-      ],
+      children: channels.map((item) {
+        final label = item.judul.trim().isNotEmpty
+            ? item.judul.trim()
+            : item.tipe.trim();
+
+        return _ComplaintTopChip(
+          label: label.isNotEmpty ? label : 'Kanal Pengaduan',
+        );
+      }).toList(),
     );
   }
 }
@@ -181,7 +149,8 @@ class _ComplaintTopChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return OutlinedButton(
-      onPressed: () {},
+      onPressed: () {
+      },
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.contentPrimary,
         padding: const EdgeInsets.symmetric(
@@ -201,7 +170,7 @@ class _ComplaintTopChip extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -318,7 +287,7 @@ class _ComplaintChip extends StatelessWidget {
               label,
               style: const TextStyle(
                 color: AppColors.brandPrimary,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -344,6 +313,13 @@ class _QuestionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final safeQuestion = question.trim().isNotEmpty
+        ? question.trim()
+        : 'Pertanyaan layanan';
+    final safeAnswer = answer.trim().isNotEmpty
+        ? answer.trim()
+        : '-';
+
     return Container(
       decoration: const BoxDecoration(
         border: Border(
@@ -364,10 +340,10 @@ class _QuestionItem extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      question,
+                      safeQuestion,
                       style: const TextStyle(
                         color: AppColors.contentPrimary,
-                        fontSize: 13,
+                        fontSize: 14,
                         height: 1.4,
                         fontWeight: FontWeight.w600,
                       ),
@@ -386,10 +362,10 @@ class _QuestionItem extends StatelessWidget {
               if (isOpened) ...[
                 const SizedBox(height: 10),
                 Text(
-                  answer,
+                  safeAnswer,
                   style: const TextStyle(
                     color: AppColors.contentPrimary,
-                    fontSize: 12,
+                    fontSize: 14,
                     height: 1.45,
                   ),
                 ),
@@ -435,7 +411,7 @@ class _HelpCard extends StatelessWidget {
                     'Tidak menemukan jawaban Anda?',
                     style: TextStyle(
                       color: AppColors.contentPrimary,
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -444,7 +420,7 @@ class _HelpCard extends StatelessWidget {
                     'Anda dapat menghubungi tim kami.',
                     style: TextStyle(
                       color: AppColors.contentSecondary,
-                      fontSize: 11,
+                      fontSize: 13,
                     ),
                   ),
                 ],

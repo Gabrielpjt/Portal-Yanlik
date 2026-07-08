@@ -650,8 +650,6 @@ String _normalizeValue(String value) {
   return value.trim().toLowerCase();
 }
 
-// Wrapper lama tetap disediakan supaya tidak error kalau masih ada file lain
-// yang memanggil BpomProductCard/DoctorCard/FacilityCard secara langsung.
 class BpomProductCard extends StatelessWidget {
   final Map<String, dynamic> product;
   final ValueChanged<Map<String, dynamic>>? onTap;

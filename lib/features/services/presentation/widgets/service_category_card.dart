@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../app/theme/app_colors.dart';
 
 class ServiceCategoryCard extends StatelessWidget {
@@ -8,7 +9,7 @@ class ServiceCategoryCard extends StatelessWidget {
   final List<Map<String, String>> services;
   final List<Map<String, String>> programs;
   final bool isActive;
-  final ValueChanged<String>? onItemTap;
+  final void Function(int serviceId, String serviceTitle)? onItemTap;
 
   const ServiceCategoryCard({
     super.key,
@@ -21,17 +22,23 @@ class ServiceCategoryCard extends StatelessWidget {
     this.onItemTap,
   });
 
+  bool _isDisplayableItem(Map<String, String> item) {
+    final name = item['name']?.trim() ?? '';
+    final normalizedName = name.toLowerCase();
+
+    return name.isNotEmpty && normalizedName != 'tanpa nama';
+  }
+
   @override
   Widget build(BuildContext context) {
     final allItems = <Map<String, String>>[
       ...services,
       ...programs,
-    ];
+    ].where(_isDisplayableItem).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Title
         Text(
           title,
           style: const TextStyle(
@@ -41,7 +48,6 @@ class ServiceCategoryCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        // Count badge
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
@@ -57,7 +63,6 @@ class ServiceCategoryCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        // Description
         Text(
           description,
           style: const TextStyle(
@@ -67,28 +72,22 @@ class ServiceCategoryCard extends StatelessWidget {
         ),
         if (allItems.isNotEmpty) ...[
           const SizedBox(height: 16),
-          // 2-column layout using manual rows
           ...List.generate((allItems.length / 2).ceil(), (rowIndex) {
             final leftIndex = rowIndex * 2;
             final rightIndex = leftIndex + 1;
+
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: _buildServiceItem(
-                      allItems[leftIndex]['name']!,
-                      allItems[leftIndex]['type']!,
-                    ),
+                    child: _buildServiceItem(allItems[leftIndex]),
                   ),
                   const SizedBox(width: 16),
                   if (rightIndex < allItems.length)
                     Expanded(
-                      child: _buildServiceItem(
-                        allItems[rightIndex]['name']!,
-                        allItems[rightIndex]['type']!,
-                      ),
+                      child: _buildServiceItem(allItems[rightIndex]),
                     )
                   else
                     const Expanded(child: SizedBox()),
@@ -98,7 +97,6 @@ class ServiceCategoryCard extends StatelessWidget {
           }),
         ],
         const SizedBox(height: 20),
-        // Thin divider line between categories
         const Divider(
           color: AppColors.strokePrimary,
           thickness: 1,
@@ -108,14 +106,16 @@ class ServiceCategoryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildServiceItem(String name, String type) {
+  Widget _buildServiceItem(Map<String, String> item) {
+    final id = int.tryParse(item['id'] ?? '') ?? 0;
+    final name = item['name']?.trim() ?? '';
+    final type = item['type']?.trim() ?? 'Layanan';
+
     return InkWell(
-      onTap: () => onItemTap?.call(name),
+      onTap: id == 0 || name.isEmpty ? null : () => onItemTap?.call(id, name),
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: 4,
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

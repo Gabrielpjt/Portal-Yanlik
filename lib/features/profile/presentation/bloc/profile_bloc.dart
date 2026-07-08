@@ -41,7 +41,7 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
           status: ProfileStatus.otpRequired,
           token: session.token,
           message:
-          'Akun ini membutuhkan verifikasi OTP. Halaman OTP belum dibuat.',
+          'Akun ini membutuhkan verifikasi OTP.',
         ));
         return;
       }
@@ -179,7 +179,7 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     try {
       await repository.logout(token: token);
     } catch (_) {
-      // Tetap hapus session lokal supaya user bisa keluar dari aplikasi.
+
     }
 
     userSessionBloc.add(const ClearUserSession());

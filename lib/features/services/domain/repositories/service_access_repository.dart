@@ -9,6 +9,7 @@ abstract class ServiceAccessRepository {
     required int limit,
     String query = '',
     String category = '',
+    bool fetchAll = false,
   });
 
   Future<ServiceAccessItemEntity> getDetail({

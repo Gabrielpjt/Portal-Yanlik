@@ -5,8 +5,8 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../shared/widgets/app_footer.dart';
 import '../../../../shared/widgets/app_header.dart';
-import '../../../../shared/widgets/app_pagination.dart';
 import '../../../../shared/widgets/filter_sort_row.dart';
+import '../../../kategori_layanan/domain/entities/kategori_layanan_entity.dart';
 import '../../../kategori_layanan/presentation/bloc/kategori_layanan_bloc.dart';
 import '../../../kategori_layanan/presentation/bloc/kategori_layanan_event.dart';
 import '../../../kategori_layanan/presentation/bloc/kategori_layanan_state.dart';
@@ -20,11 +20,7 @@ class ServicesPage extends StatefulWidget {
   final VoidCallback? onServicesTap;
   final VoidCallback? onProfileTap;
   final bool isLoggedIn;
-
-  /// Dipakai untuk navigasi dari menu/home agar langsung scroll ke kategori.
   final String? initialCategory;
-
-  /// Ubah nilai ini saat request scroll baru dengan kategori yang sama.
   final int scrollRequestId;
 
   const ServicesPage({
@@ -43,19 +39,20 @@ class ServicesPage extends StatefulWidget {
 }
 
 class _ServicesPageState extends State<ServicesPage> {
-  int _currentPage = 1;
-  final int _totalPages = 4;
-  String _selectedSort = 'Terbaru';
+  String _selectedSort = 'A-Z';
+  String _selectedCategoryKey = 'all';
+  String _searchKeyword = '';
 
   final ScrollController _scrollController = ScrollController();
 
-  /// Key dibuat dinamis dari kategori API, tapi tetap disimpan agar bisa
-  /// dipakai Scrollable.ensureVisible ketika navigasi ke kategori tertentu.
   final Map<String, GlobalKey> _categoryKeys = <String, GlobalKey>{};
 
   @override
   void initState() {
     super.initState();
+    _selectedCategoryKey = widget.initialCategory?.trim().isNotEmpty == true
+        ? widget.initialCategory!.trim()
+        : 'all';
     _scheduleScrollToCategory(widget.initialCategory);
   }
 
@@ -65,6 +62,14 @@ class _ServicesPageState extends State<ServicesPage> {
 
     if (oldWidget.scrollRequestId != widget.scrollRequestId ||
         oldWidget.initialCategory != widget.initialCategory) {
+      final categoryName = widget.initialCategory?.trim();
+
+      if (categoryName != null && categoryName.isNotEmpty) {
+        setState(() {
+          _selectedCategoryKey = categoryName;
+        });
+      }
+
       _scheduleScrollToCategory(widget.initialCategory);
     }
   }
@@ -74,6 +79,8 @@ class _ServicesPageState extends State<ServicesPage> {
     _scrollController.dispose();
     super.dispose();
   }
+
+  bool get _sortAscending => _selectedSort == 'A-Z';
 
   GlobalKey _keyForCategory(String categoryName) {
     return _categoryKeys.putIfAbsent(categoryName, () => GlobalKey());
@@ -102,8 +109,6 @@ class _ServicesPageState extends State<ServicesPage> {
       final targetContext = _categoryKeys[categoryName]?.currentContext;
 
       if (targetContext == null) {
-        // Data kategori mungkin belum selesai load. Coba lagi setelah frame
-        // berikutnya, biasanya setelah BlocBuilder selesai render.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) {
             return;
@@ -132,10 +137,11 @@ class _ServicesPageState extends State<ServicesPage> {
     );
   }
 
-  void _openServiceDetail(String serviceTitle) {
+  void _openServiceDetail(int serviceId, String serviceTitle) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ServiceDetailPage(
+          serviceId: serviceId,
           serviceTitle: serviceTitle,
           isLoggedIn: widget.isLoggedIn,
           onMenuTap: widget.onMenuTap,
@@ -144,6 +150,22 @@ class _ServicesPageState extends State<ServicesPage> {
         ),
       ),
     );
+  }
+
+  int _totalNamedServices(List<KategoriLayananEntity> categories) {
+    var total = 0;
+
+    for (final category in categories) {
+      for (final layanan in category.layanan) {
+        final name = layanan.nama.trim();
+        if (name.isEmpty || name.toLowerCase() == 'tanpa nama') {
+          continue;
+        }
+        total++;
+      }
+    }
+
+    return total;
   }
 
   @override
@@ -161,100 +183,129 @@ class _ServicesPageState extends State<ServicesPage> {
               isLoggedIn: widget.isLoggedIn,
             ),
             Expanded(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const ServicesHeader(),
-                    const Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: AppColors.strokePrimary,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      child: FilterSortRow(
-                        sortLabel: _selectedSort,
-                        onSortTap: () {
-                          setState(() {
-                            _selectedSort = _selectedSort == 'Terbaru'
-                                ? 'Terlama'
-                                : 'Terbaru';
-                          });
-                        },
-                      ),
-                    ),
-                    const Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: AppColors.strokePrimary,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                      child: BlocBuilder<KategoriLayananBloc,
-                          KategoriLayananState>(
-                        builder: (context, state) {
-                          if (state.status == KategoriLayananStatus.loading ||
-                              state.status == KategoriLayananStatus.initial) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          }
+              child: BlocBuilder<KategoriLayananBloc, KategoriLayananState>(
+                builder: (context, state) {
+                  final categories = state.items;
+                  final totalLayanan = _totalNamedServices(categories);
 
-                          if (state.status == KategoriLayananStatus.error) {
-                            return Center(
-                              child: Text(
-                                'Gagal memuat kategori: ${state.errorMessage}',
-                                style: const TextStyle(color: Colors.red),
-                              ),
-                            );
-                          }
+                  if (categories.isNotEmpty) {
+                    _syncCategoryKeys(
+                      categories.map((item) => item.nama).toList(),
+                    );
+                    _scheduleScrollToCategory(widget.initialCategory);
+                  }
 
-                          if (state.items.isEmpty) {
-                            return const Center(
-                              child: Text('Belum ada kategori layanan.'),
-                            );
-                          }
-
-                          _syncCategoryKeys(
-                            state.items.map((item) => item.nama).toList(),
-                          );
-
-                          _scheduleScrollToCategory(widget.initialCategory);
-
-                          return ServiceCategoryList(
-                            categories: state.items,
-                            categoryKeys: _categoryKeys,
-                            onServiceTap: _openServiceDetail,
-                          );
-                        },
-                      ),
+                  return SingleChildScrollView(
+                    controller: _scrollController,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ServicesHeader(
+                          totalLayanan: totalLayanan,
+                          onSearchChanged: (value) {
+                            setState(() {
+                              _searchKeyword = value;
+                            });
+                          },
+                        ),
+                        const Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: AppColors.strokePrimary,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: FilterSortRow(
+                            sortLabel: _selectedSort,
+                            onFilterTap: () {
+                              setState(() {
+                                _selectedCategoryKey = 'all';
+                                _searchKeyword = '';
+                              });
+                            },
+                            onSortTap: () {
+                              setState(() {
+                                _selectedSort = _selectedSort == 'A-Z'
+                                    ? 'Z-A'
+                                    : 'A-Z';
+                              });
+                            },
+                          ),
+                        ),
+                        const Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: AppColors.strokePrimary,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          child: _buildCategoryContent(state),
+                        ),
+                        const AppFooter(),
+                      ],
                     ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                      child: AppPagination(
-                        currentPage: _currentPage,
-                        totalPages: _totalPages,
-                        onPageChanged: (page) {
-                          setState(() => _currentPage = page);
-                        },
-                      ),
-                    ),
-                    const AppFooter(),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCategoryContent(KategoriLayananState state) {
+    if (state.status == KategoriLayananStatus.loading ||
+        state.status == KategoriLayananStatus.initial) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 28),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (state.status == KategoriLayananStatus.error) {
+      return Center(
+        child: Text(
+          'Gagal memuat kategori: ${state.errorMessage}',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.red),
+        ),
+      );
+    }
+
+    if (state.items.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 28),
+          child: Text('Belum ada kategori layanan.'),
+        ),
+      );
+    }
+
+    return ServiceCategoryList(
+      categories: state.items,
+      categoryKeys: _categoryKeys,
+      selectedCategoryKey: _selectedCategoryKey,
+      searchKeyword: _searchKeyword,
+      sortAscending: _sortAscending,
+      onCategorySelected: (key) {
+        setState(() {
+          _selectedCategoryKey = key;
+        });
+
+        if (key != 'all') {
+          _scheduleScrollToCategory(key);
+        }
+      },
+      onServiceTap: _openServiceDetail,
     );
   }
 }

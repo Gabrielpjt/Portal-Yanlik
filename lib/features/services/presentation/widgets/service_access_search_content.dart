@@ -194,8 +194,7 @@ class ServiceAccessDocumentSearchIcon extends StatelessWidget {
   }
 }
 
-// Data sementara untuk UI sebelum integrasi API.
-// Nanti saat API sudah masuk, file ini bisa diganti repository/API response tanpa mengubah UI page.
+// Data sementara untuk UI
 
 const List<Map<String, dynamic>> serviceAccessMockDoctors = [
 
@@ -681,35 +680,21 @@ class _ServiceAccessSearchContentState extends State<ServiceAccessSearchContent>
       return;
     }
 
-    if (_config.isHealthFacility) {
-      setState(() {
-        _selectedCategory = 'Semua';
-        _currentPage = page;
-      });
-
-      context.read<ServiceAccessBloc>().add(
-        ServiceAccessSearchRequested(
-          type: _config.type,
-          token: _sessionToken(),
-          page: page,
-          limit: _pageSize,
-          query: _searchKeyword,
-        ),
-      );
-      return;
-    }
-
     setState(() {
       _currentPage = page;
     });
   }
 
   void _retryFacilitySearch() {
+    setState(() {
+      _currentPage = 1;
+    });
+
     context.read<ServiceAccessBloc>().add(
       ServiceAccessSearchRequested(
         type: _config.type,
         token: _sessionToken(),
-        page: _currentPage,
+        page: 1,
         limit: _pageSize,
         query: _searchKeyword,
       ),
@@ -830,16 +815,11 @@ class _ServiceAccessSearchContentState extends State<ServiceAccessSearchContent>
     final items = config.isHealthFacility
         ? _filterItemsByCategory(sourceItems)
         : _filteredItems;
-    final useApiPagination = config.isHealthFacility;
-    final pageCount = useApiPagination
-        ? max(1, _currentPage + ((fasyankesState?.hasNextPage ?? false) ? 1 : 0))
-        : max(1, (items.length / _pageSize).ceil());
+    final pageCount = max(1, (items.length / _pageSize).ceil());
     final safePage = min(_currentPage, pageCount);
     final startIndex = (safePage - 1) * _pageSize;
     final endIndex = min(startIndex + _pageSize, items.length);
-    final visibleItems = useApiPagination
-        ? items
-        : items.isEmpty
+    final visibleItems = items.isEmpty
         ? <Map<String, dynamic>>[]
         : items.sublist(startIndex, endIndex);
 
@@ -897,7 +877,7 @@ class _ServiceAccessSearchContentState extends State<ServiceAccessSearchContent>
         if (visibleItems.isNotEmpty && pageCount > 1) ...[
           const SizedBox(height: 24),
           AppPagination(
-            currentPage: _currentPage,
+            currentPage: safePage,
             totalPages: pageCount,
             onPageChanged: (page) => _changePage(page, pageCount),
           ),

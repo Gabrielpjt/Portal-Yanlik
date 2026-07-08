@@ -1,28 +1,33 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../domain/entities/service_detail_entity.dart';
 import 'service_detail_tab_section.dart';
 
 class ServiceDetailMainContent extends StatelessWidget {
-  final String serviceTitle;
+  final ServiceDetailEntity detail;
   final VoidCallback? onHealthFacilityTap;
   final VoidCallback? onAccessServiceTap;
 
+
   const ServiceDetailMainContent({
     super.key,
-    required this.serviceTitle,
+    required this.detail,
     this.onHealthFacilityTap,
     this.onAccessServiceTap,
   });
 
+  String get _serviceTitle => detail.nama;
+
   bool get _isHealthFacility {
-    return serviceTitle == 'Cari Fasilitas Kesehatan' ||
-        serviceTitle == 'Cari Dokter dan Fasilitas Kesehatan' ||
-        serviceTitle.startsWith('Pencarian Layanan Keseha');
+    return _serviceTitle == 'Cek Fasilitas Kesehatan' ||
+        _serviceTitle == 'Cari Fasilitas Kesehatan' ||
+        _serviceTitle == 'Cari Dokter dan Fasilitas Kesehatan' ||
+        _serviceTitle.startsWith('Pencarian Layanan Keseha');
   }
 
   bool get _isDoctor {
-    return serviceTitle == 'Cari Dokter';
+    return _serviceTitle == 'Cari Dokter';
   }
 
   bool get _isHealthDirectory {
@@ -30,22 +35,43 @@ class ServiceDetailMainContent extends StatelessWidget {
   }
 
   bool get _isBpjsMembership {
-    return serviceTitle == 'Informasi Kepesertaan BPJS';
+    return _serviceTitle == 'Informasi Kepesertaan BPJS';
   }
 
   bool get _isBpjsMembershipAddition {
-    return serviceTitle == 'Penambahan Kepesertaan BPJS';
+    return _serviceTitle == 'Penambahan Kepesertaan BPJS';
   }
 
   bool get _isQueueRegistration {
-    return serviceTitle ==
-        'Pendaftaran Pelayanan BPJS (Antrean)' ||
-        serviceTitle == 'Pendaftaran Pelayanan (Antrean)';
+    return _serviceTitle == 'Pendaftaran Pelayanan BPJS (Antrean)' ||
+        _serviceTitle == 'Pendaftaran Pelayanan (Antrean)';
   }
 
   bool get _isBirthCertificate {
-    return serviceTitle == 'Penerbitan Akta Kelahiran' ||
-        serviceTitle == 'Pengurusan Akta Kelahiran';
+    return _serviceTitle == 'Penerbitan Akta Kelahiran' ||
+        _serviceTitle == 'Pengurusan Akta Kelahiran';
+  }
+
+  bool get _isBansosCheck {
+    return _serviceTitle == 'Mengecek Bantuan Sosial' ||
+        _serviceTitle == 'Cek Bantuan Sosial' ||
+        _serviceTitle == 'Pengecekan Bantuan Sosial';
+  }
+
+  bool get _isBpomProductCheck {
+    return _serviceTitle == 'Pengecekan Produk BPOM' ||
+        _serviceTitle == 'Cek Produk BPOM' ||
+        _serviceTitle == 'Mengecek Produk BPOM';
+  }
+
+  bool get _canOpenInternalAccess {
+    return _isHealthDirectory ||
+        _isBpjsMembership ||
+        _isBpjsMembershipAddition ||
+        _isQueueRegistration ||
+        _isBirthCertificate ||
+        _isBansosCheck ||
+        _isBpomProductCheck;
   }
 
   @override
@@ -61,22 +87,22 @@ class ServiceDetailMainContent extends StatelessWidget {
           _description,
           style: const TextStyle(
             color: AppColors.contentPrimary,
-            fontSize: 13,
+            fontSize: 14,
             height: 1.55,
           ),
         ),
         const SizedBox(height: 24),
-        const ServiceDetailTabSection(),
+        ServiceDetailTabSection(
+          persyaratan: detail.persyaratan,
+          caraMengakses: detail.caraMengakses,
+          informasiTambahan: detail.informasiTambahan,
+        ),
         const SizedBox(height: 30),
         _ServiceAccessLinks(
-          serviceTitle: serviceTitle,
+          serviceTitle: _serviceTitle,
+          accesses: detail.akses,
+          canOpenInternalAccess: _canOpenInternalAccess,
           isHealthDirectory: _isHealthDirectory,
-          isDoctor: _isDoctor,
-          isBirthCertificate: _isBirthCertificate,
-          isBpjsMembership: _isBpjsMembership,
-          isQueueRegistration: _isQueueRegistration,
-          isBpjsMembershipAddition:
-          _isBpjsMembershipAddition,
           onHealthFacilityTap: onHealthFacilityTap,
           onAccessServiceTap: onAccessServiceTap,
         ),
@@ -85,59 +111,24 @@ class ServiceDetailMainContent extends StatelessWidget {
           thickness: 0.4,
         ),
         _OtherDetailSection(
+          detail: detail,
           isHealthDirectory: _isHealthDirectory,
           isBirthCertificate: _isBirthCertificate,
           isBpjsMembership: _isBpjsMembership,
           isQueueRegistration: _isQueueRegistration,
-          isBpjsMembershipAddition:
-          _isBpjsMembershipAddition,
+          isBpjsMembershipAddition: _isBpjsMembershipAddition,
         ),
       ],
     );
   }
 
   String get _description {
-    if (_isDoctor) {
-      return 'Temukan dokter sesuai kebutuhan Anda berdasarkan nama, '
-          'spesialisasi, lokasi praktik, dan jadwal pelayanan.';
-    }
-
-    if (_isHealthFacility) {
-      return 'Temukan rumah sakit, puskesmas, atau klinik di sekitar Anda '
-          'berdasarkan lokasi dan jenis layanan.';
-    }
-
-    if (_isBpjsMembership) {
-      return 'Fitur Info Peserta BPJS Kesehatan memungkinkan Anda mengecek '
-          'status keaktifan, iuran, kelas rawat, dan data pribadi seperti '
-          'NIK dan faskes secara real-time.';
-    }
-
-    if (_isBpjsMembershipAddition) {
-      return 'Fitur penambahan kepesertaan BPJS Kesehatan '
-          'memungkinkan pengguna menambahkan anggota keluarga '
-          'baru, memilih fasilitas kesehatan tingkat pertama, '
-          'menentukan kelas pelayanan, serta melakukan verifikasi '
-          'nomor telepon dan email secara daring.';
-    }
-
-    if (_isQueueRegistration) {
-      return 'Fitur pendaftaran pelayanan BPJS Kesehatan paling utama '
-          'terdapat pada aplikasi Mobile JKN, yang memungkinkan peserta '
-          'mengambil antrean online di FKTP (Puskesmas/Klinik) atau '
-          'Rumah Sakit secara mandiri. Fitur ini memudahkan pendaftaran, '
-          'pengecekan jadwal dokter, dan check-in tanpa harus antre lama '
-          'di faskes.';
-    }
-
-    if (_isBirthCertificate) {
-      return 'Ajukan pembuatan akta kelahiran untuk mencatat kelahiran anak '
-          'secara resmi yang terhubung dengan data kependudukan melalui '
-          'Identitas Kependudukan Digital (IKD).';
+    if (detail.deskripsi.trim().isNotEmpty) {
+      return detail.deskripsi;
     }
 
     return 'Temukan informasi dan panduan lengkap untuk mengakses layanan '
-        '$serviceTitle.';
+        '$_serviceTitle.';
   }
 }
 
@@ -164,117 +155,61 @@ class _SectionTitle extends StatelessWidget {
 
 class _ServiceAccessLinks extends StatelessWidget {
   final String serviceTitle;
+  final List<ServiceAccessEntity> accesses;
+  final bool canOpenInternalAccess;
   final bool isHealthDirectory;
-  final bool isDoctor;
-  final bool isBirthCertificate;
-  final bool isBpjsMembership;
-  final bool isQueueRegistration;
-  final bool isBpjsMembershipAddition;
   final VoidCallback? onHealthFacilityTap;
   final VoidCallback? onAccessServiceTap;
 
   const _ServiceAccessLinks({
     required this.serviceTitle,
+    required this.accesses,
+    required this.canOpenInternalAccess,
     required this.isHealthDirectory,
-    required this.isDoctor,
-    required this.isBirthCertificate,
-    required this.isBpjsMembership,
-    required this.isQueueRegistration,
-    required this.isBpjsMembershipAddition,
     this.onHealthFacilityTap,
     this.onAccessServiceTap,
   });
 
-  List<String> get _links {
-    if (isDoctor) {
-      return const [
-        'Cari Dokter',
-        'Satu Sehat',
-      ];
-    }
-
-    if (isHealthDirectory) {
-      return const [
-        'Cari Fasilitas Kesehatan',
-        'Satu Sehat',
-      ];
-    }
-
-    if (isBirthCertificate) {
-      return const [
-        'Form Penerbitan Akta Kelahiran',
-        'Website Official',
-      ];
-    }
-
-    if (isBpjsMembership) {
-      return const [
-        'Informasi Kepesertaan',
-        'Website Official BPJS',
-      ];
-    }
-
-    if (isBpjsMembershipAddition) {
-      return const [
-        'Form Penambahan Kepesertaan',
-        'Website Official BPJS',
-      ];
-    }
-
-    if (isQueueRegistration) {
-      return const [
-        'Form Pendaftaran Pelayanan',
-        'Website Official BPJS',
-      ];
+  List<ServiceAccessEntity> get _items {
+    if (accesses.isNotEmpty) {
+      return accesses;
     }
 
     return [
-      'Akses $serviceTitle',
-      'Website Official',
+      ServiceAccessEntity(
+        id: 0,
+        judul: 'Akses $serviceTitle',
+        deskripsi: '',
+        tipe: 'LAINNYA',
+        isPrimary: true,
+      ),
     ];
   }
 
-  VoidCallback _getLinkAction(String label) {
+  VoidCallback _getLinkAction(ServiceAccessEntity item) {
+    final label = item.judul.toLowerCase();
+
     if (isHealthDirectory &&
-        (label == 'Cari Fasilitas Kesehatan' ||
-            label == 'Cari Dokter')) {
+        (label.contains('fasilitas') || label.contains('dokter'))) {
       return onHealthFacilityTap ?? () {};
     }
 
-    if (isBirthCertificate &&
-        label == 'Form Penerbitan Akta Kelahiran') {
+    if (canOpenInternalAccess && item.isPrimary) {
       return onAccessServiceTap ?? () {};
     }
 
-    if (isBpjsMembership &&
-        label == 'Informasi Kepesertaan') {
+    if (canOpenInternalAccess &&
+        (label.contains('form') ||
+            label.contains('cek') ||
+            label.contains('cari') ||
+            label.contains('informasi kepesertaan') ||
+            label.contains('pendaftaran') ||
+            label.contains('akses'))) {
       return onAccessServiceTap ?? () {};
     }
 
-    if (isBpjsMembershipAddition &&
-        label == 'Form Penambahan Kepesertaan') {
-      return onAccessServiceTap ?? () {};
-    }
-
-    if (isQueueRegistration &&
-        label == 'Form Pendaftaran Pelayanan') {
-      return onAccessServiceTap ?? () {};
-    }
-
-    if (label == 'Satu Sehat') {
-      return () {
-        // Tambahkan navigasi menuju Satu Sehat di sini.
-      };
-    }
-
-    if (label == 'Website Official' ||
-        label == 'Website Official BPJS') {
-      return () {
-        // Tambahkan pembukaan website resmi di sini.
-      };
-    }
-
-    return onAccessServiceTap ?? () {};
+    return () {
+    };
   }
 
   @override
@@ -289,10 +224,14 @@ class _ServiceAccessLinks extends StatelessWidget {
         Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: _links.map((label) {
+          children: _items.map((item) {
+            final label = item.judul.trim().isNotEmpty
+                ? item.judul.trim()
+                : item.tipe.trim();
+
             return _AccessLinkButton(
-              label: label,
-              onTap: _getLinkAction(label),
+              label: label.isNotEmpty ? label : 'Akses layanan',
+              onTap: _getLinkAction(item),
             );
           }).toList(),
         ),
@@ -336,7 +275,7 @@ class _AccessLinkButton extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -354,6 +293,7 @@ class _AccessLinkButton extends StatelessWidget {
 }
 
 class _OtherDetailSection extends StatelessWidget {
+  final ServiceDetailEntity detail;
   final bool isHealthDirectory;
   final bool isBirthCertificate;
   final bool isBpjsMembership;
@@ -361,12 +301,35 @@ class _OtherDetailSection extends StatelessWidget {
   final bool isBpjsMembershipAddition;
 
   const _OtherDetailSection({
+    required this.detail,
     required this.isHealthDirectory,
     required this.isBirthCertificate,
     required this.isBpjsMembership,
     required this.isQueueRegistration,
     required this.isBpjsMembershipAddition,
   });
+
+  String get _coverage {
+    final apiCoverage = detail.cakupan.trim();
+
+    if (apiCoverage.isNotEmpty) {
+      return apiCoverage;
+    }
+
+    return '-';
+  }
+
+  String get _accessMethod {
+    if (detail.aksesLayanan.isNotEmpty) {
+      return detail.aksesLayanan.join(', ');
+    }
+
+    if (isBirthCertificate) {
+      return 'Online melalui IKD dan offline melalui Dukcapil';
+    }
+
+    return 'Online, Offline, Mobile Apps';
+  }
 
   String get _responsibleAgency {
     if (isHealthDirectory) {
@@ -386,15 +349,12 @@ class _OtherDetailSection extends StatelessWidget {
           'Rumah Sakit/Fasilitas Kesehatan';
     }
 
-    return 'Instansi pemerintah terkait';
-  }
-
-  String get _accessMethod {
-    if (isBirthCertificate) {
-      return 'Online melalui IKD dan offline melalui Dukcapil';
+    final kategori = detail.kategoriLayanan?.nama.trim() ?? '';
+    if (kategori.isNotEmpty) {
+      return kategori;
     }
 
-    return 'Online, Offline, Mobile Apps';
+    return 'Instansi pemerintah terkait';
   }
 
   @override
@@ -406,9 +366,9 @@ class _OtherDetailSection extends StatelessWidget {
           title: 'Detail Lainnya',
         ),
         const SizedBox(height: 18),
-        const _DetailItem(
+        _DetailItem(
           label: 'Cakupan Layanan / Program',
-          value: 'Nasional, Daerah',
+          value: _coverage,
         ),
         const SizedBox(height: 18),
         _DetailItem(
@@ -443,7 +403,7 @@ class _DetailItem extends StatelessWidget {
           label,
           style: const TextStyle(
             color: AppColors.contentSecondary,
-            fontSize: 12,
+            fontSize: 13,
           ),
         ),
         const SizedBox(height: 5),
@@ -451,7 +411,7 @@ class _DetailItem extends StatelessWidget {
           value,
           style: const TextStyle(
             color: AppColors.contentPrimary,
-            fontSize: 13,
+            fontSize: 14,
             height: 1.4,
             fontWeight: FontWeight.w600,
           ),

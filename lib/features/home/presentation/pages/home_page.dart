@@ -194,7 +194,11 @@ class HomePage extends StatelessWidget {
                                 );
                               }
 
-                              if (state.items.isEmpty) {
+                              final displayItems = _buildPopularServiceItems(
+                                state.items,
+                              );
+
+                              if (displayItems.isEmpty) {
                                 return const Padding(
                                   padding: EdgeInsets.symmetric(vertical: 16),
                                   child: Center(
@@ -202,8 +206,6 @@ class HomePage extends StatelessWidget {
                                   ),
                                 );
                               }
-
-                              final displayItems = state.items.take(6).toList();
 
                               return _buildPopularServicesList(
                                 context,
@@ -258,16 +260,52 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildPopularServicesList(
-      BuildContext context,
+  List<_PopularServiceItem> _buildPopularServiceItems(
       List<LayananEntity> items,
       ) {
-    final rows = <List<LayananEntity>>[];
+    final services = <_PopularServiceItem>[];
 
-    for (int i = 0; i < items.length; i += 2) {
+    for (final item in items) {
+      final title = item.nama.trim();
+
+      if (title.isEmpty) {
+        continue;
+      }
+
+      final alreadyAdded = services.any(
+            (existingItem) =>
+        existingItem.title.toLowerCase() == title.toLowerCase(),
+      );
+
+      if (alreadyAdded) {
+        continue;
+      }
+
+      services.add(
+        _PopularServiceItem(
+          id: item.id,
+          title: title,
+        ),
+      );
+
+      if (services.length >= 6) {
+        break;
+      }
+    }
+
+    return services;
+  }
+
+  Widget _buildPopularServicesList(
+      BuildContext context,
+      List<_PopularServiceItem> serviceItems,
+      ) {
+    final rows = <List<_PopularServiceItem>>[];
+
+    for (int i = 0; i < serviceItems.length; i += 2) {
       rows.add([
-        items[i],
-        if (i + 1 < items.length) items[i + 1],
+        serviceItems[i],
+        if (i + 1 < serviceItems.length) serviceItems[i + 1],
       ]);
     }
 
@@ -283,11 +321,12 @@ class HomePage extends StatelessWidget {
             children: [
               Expanded(
                 child: ServiceListItem(
-                  title: row[0].nama,
+                  title: row[0].title,
                   onTap: () {
                     _openServiceDetail(
                       context,
-                      serviceTitle: row[0].nama,
+                      serviceTitle: row[0].title,
+                      serviceId: row[0].id,
                     );
                   },
                 ),
@@ -296,11 +335,12 @@ class HomePage extends StatelessWidget {
               Expanded(
                 child: row.length > 1
                     ? ServiceListItem(
-                  title: row[1].nama,
+                  title: row[1].title,
                   onTap: () {
                     _openServiceDetail(
                       context,
-                      serviceTitle: row[1].nama,
+                      serviceTitle: row[1].title,
+                      serviceId: row[1].id,
                     );
                   },
                 )
@@ -349,11 +389,13 @@ class HomePage extends StatelessWidget {
   void _openServiceDetail(
       BuildContext context, {
         required String serviceTitle,
+        int? serviceId,
       }) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) {
           return ServiceDetailPage(
+            serviceId: serviceId,
             serviceTitle: serviceTitle,
             isLoggedIn: isLoggedIn,
             onMenuTap: onMenuTap,
@@ -364,4 +406,14 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PopularServiceItem {
+  final int? id;
+  final String title;
+
+  const _PopularServiceItem({
+    required this.title,
+    this.id,
+  });
 }

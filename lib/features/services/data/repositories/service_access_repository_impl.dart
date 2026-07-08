@@ -17,6 +17,7 @@ class ServiceAccessRepositoryImpl implements ServiceAccessRepository {
     required int limit,
     String query = '',
     String category = '',
+    bool fetchAll = false,
   }) {
     switch (type) {
       case ServiceAccessSearchType.healthFacility:
@@ -26,6 +27,7 @@ class ServiceAccessRepositoryImpl implements ServiceAccessRepository {
           limit: limit,
           query: query,
           jenisSarana: category,
+          fetchAll: fetchAll,
         );
       case ServiceAccessSearchType.doctor:
         throw const ServerFailure('API cari dokter belum tersedia.');

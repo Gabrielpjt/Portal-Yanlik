@@ -1,31 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/di/injection_container.dart';
 import '../../../../shared/widgets/app_footer.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../../shared/widgets/breadcrumb_widget.dart';
 import '../../../profile/presentation/widgets/profile_status_tab.dart';
+import '../../domain/entities/service_detail_entity.dart';
+import '../bloc/service_detail_bloc.dart';
+import '../bloc/service_detail_event.dart';
+import '../bloc/service_detail_state.dart';
 import '../widgets/service_detail_main_content.dart';
 import '../widgets/service_detail_overview_card.dart';
 import '../widgets/service_detail_support_section.dart';
 import '../widgets/service_review_related_section.dart';
+import 'bansos_check_page.dart';
 import 'birth_certificate_application_page.dart';
 import 'bpjs_membership_addition_application_page.dart';
 import 'queue_registration_application_page.dart';
 import 'service_access_search_page.dart';
-import 'bansos_check_page.dart';
 
 class ServiceDetailPage extends StatefulWidget {
   final VoidCallback? onMenuTap;
   final VoidCallback? onLoginTap;
   final VoidCallback? onServicesTap;
 
+  final int? serviceId;
   final bool isLoggedIn;
   final String serviceTitle;
   final bool initialHasSubmittedApplication;
 
   const ServiceDetailPage({
     super.key,
+    this.serviceId,
     this.onMenuTap,
     this.onLoginTap,
     this.onServicesTap,
@@ -50,26 +58,30 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     final hasStoredBirthCertificateSubmission =
     ProfileStatusStore.submissions.value.any(
           (submission) {
-        return submission.title ==
-            'Penerbitan Akta Kelahiran' ||
-            submission.title ==
-                'Pengurusan Akta Kelahiran';
+        return submission.title == 'Penerbitan Akta Kelahiran' ||
+            submission.title == 'Pengurusan Akta Kelahiran';
       },
     );
 
-    _hasSubmittedApplication =
-        widget.initialHasSubmittedApplication ||
-            (_isBirthCertificate &&
-                hasStoredBirthCertificateSubmission);
+    _hasSubmittedApplication = widget.initialHasSubmittedApplication ||
+        (_isBirthCertificate && hasStoredBirthCertificateSubmission);
+  }
+
+  ServiceDetailEntity get _fallbackDetail {
+    return ServiceDetailEntity(
+      id: widget.serviceId ?? 0,
+      nama: widget.serviceTitle,
+      deskripsi: '',
+      status: 'PUBLISHED',
+      cakupan: 'Nasional',
+    );
   }
 
   bool get _isHealthFacility {
     return widget.serviceTitle == 'Cek Fasilitas Kesehatan' ||
-        widget.serviceTitle ==
-            'Cari Dokter dan Fasilitas Kesehatan' ||
-        widget.serviceTitle.startsWith(
-          'Pencarian Layanan Keseha',
-        );
+        widget.serviceTitle == 'Cari Fasilitas Kesehatan' ||
+        widget.serviceTitle == 'Cari Dokter dan Fasilitas Kesehatan' ||
+        widget.serviceTitle.startsWith('Pencarian Layanan Keseha');
   }
 
   bool get _isDoctor {
@@ -81,27 +93,21 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   }
 
   bool get _isBpjsMembership {
-    return widget.serviceTitle ==
-        'Informasi Kepesertaan BPJS';
+    return widget.serviceTitle == 'Informasi Kepesertaan BPJS';
   }
 
   bool get _isBpjsMembershipAddition {
-    return widget.serviceTitle ==
-        'Penambahan Kepesertaan BPJS';
+    return widget.serviceTitle == 'Penambahan Kepesertaan BPJS';
   }
 
   bool get _isQueueRegistration {
-    return widget.serviceTitle ==
-        'Pendaftaran Pelayanan BPJS (Antrean)' ||
-        widget.serviceTitle ==
-            'Pendaftaran Pelayanan (Antrean)';
+    return widget.serviceTitle == 'Pendaftaran Pelayanan BPJS (Antrean)' ||
+        widget.serviceTitle == 'Pendaftaran Pelayanan (Antrean)';
   }
 
   bool get _isBirthCertificate {
-    return widget.serviceTitle ==
-        'Penerbitan Akta Kelahiran' ||
-        widget.serviceTitle ==
-            'Pengurusan Akta Kelahiran';
+    return widget.serviceTitle == 'Penerbitan Akta Kelahiran' ||
+        widget.serviceTitle == 'Pengurusan Akta Kelahiran';
   }
 
   bool get _isBansosCheck {
@@ -118,6 +124,15 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
 
   bool get _usesServiceAccess {
     return _isHealthDirectory || _isBpjsMembership || _isBpomProductCheck;
+  }
+
+  bool get _canAccessFromMainContent {
+    return _isBirthCertificate ||
+        _isBpjsMembership ||
+        _isBpjsMembershipAddition ||
+        _isQueueRegistration ||
+        _isBansosCheck ||
+        _isBpomProductCheck;
   }
 
   void _openServiceAccess(BuildContext context) {
@@ -153,16 +168,14 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     });
   }
 
-  Future<void>
-  _openBpjsMembershipAdditionApplication() async {
+  Future<void> _openBpjsMembershipAdditionApplication() async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) =>
-            BpjsMembershipAdditionApplicationPage(
-              isLoggedIn: widget.isLoggedIn,
-              onMenuTap: widget.onMenuTap,
-              onLoginTap: widget.onLoginTap,
-            ),
+        builder: (_) => BpjsMembershipAdditionApplicationPage(
+          isLoggedIn: widget.isLoggedIn,
+          onMenuTap: widget.onMenuTap,
+          onLoginTap: widget.onLoginTap,
+        ),
       ),
     );
   }
@@ -171,6 +184,18 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => QueueRegistrationApplicationPage(
+          isLoggedIn: widget.isLoggedIn,
+          onMenuTap: widget.onMenuTap,
+          onLoginTap: widget.onLoginTap,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openBansosCheckApplication() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => BansosCheckPage(
           isLoggedIn: widget.isLoggedIn,
           onMenuTap: widget.onMenuTap,
           onLoginTap: widget.onLoginTap,
@@ -206,18 +231,6 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     }
   }
 
-  Future<void> _openBansosCheckApplication() async {
-    await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => BansosCheckPage(
-          isLoggedIn: widget.isLoggedIn,
-          onMenuTap: widget.onMenuTap,
-          onLoginTap: widget.onLoginTap,
-        ),
-      ),
-    );
-  }
-
   Future<void> _copySubmissionId() async {
     const submissionId = '1234567890';
 
@@ -233,9 +246,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text(
-          'ID pengajuan berhasil disalin',
-        ),
+        content: Text('ID pengajuan berhasil disalin'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -243,10 +254,42 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final showSubmissionStatus =
-        _isBirthCertificate &&
-            _hasSubmittedApplication;
+    if (widget.serviceId == null) {
+      return _buildDetailPage(_fallbackDetail);
+    }
 
+    return BlocProvider(
+      create: (_) => getIt<ServiceDetailBloc>()
+        ..add(FetchServiceDetail(widget.serviceId!)),
+      child: BlocBuilder<ServiceDetailBloc, ServiceDetailState>(
+        builder: (context, state) {
+          if (state.status == ServiceDetailStatus.loading ||
+              state.status == ServiceDetailStatus.initial) {
+            return const Scaffold(
+              backgroundColor: Colors.white,
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+
+          if (state.status == ServiceDetailStatus.error ||
+              state.detail == null) {
+            debugPrint(
+              'Gagal memuat detail layanan id ${widget.serviceId}: '
+                  '${state.errorMessage}',
+            );
+
+            return _buildDetailPage(_fallbackDetail);
+          }
+
+          return _buildDetailPage(state.detail!);
+        },
+      ),
+    );
+  }
+
+  Widget _buildDetailPage(ServiceDetailEntity detail) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -257,99 +300,9 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
             onLoginTap: widget.onLoginTap,
           ),
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment:
-                CrossAxisAlignment.stretch,
-                children: [
-                  BreadcrumbWidget(
-                    padding: const EdgeInsets.fromLTRB(
-                      16,
-                      14,
-                      16,
-                      14,
-                    ),
-                    items: [
-                      const BreadcrumbItem(
-                        label: 'Beranda',
-                      ),
-                      const BreadcrumbItem(
-                        label: '...',
-                      ),
-                      BreadcrumbItem(
-                        label: widget.serviceTitle,
-                      ),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                    ),
-                    child: Column(
-                      crossAxisAlignment:
-                      CrossAxisAlignment.stretch,
-                      children: [
-                        if (showSubmissionStatus)
-                          _SubmittedServiceOverviewCard(
-                            title: widget.serviceTitle,
-                            submissionId: '1234567890',
-                            onCopyTap: _copySubmissionId,
-                            onShareTap: () {
-                            },
-                          )
-                        else
-                          ServiceDetailOverviewCard(
-                            title: widget.serviceTitle,
-                            onAccessTap: () {
-                              _handleAccessService(
-                                context,
-                              );
-                            },
-                          ),
-                        const SizedBox(height: 24),
-                        ServiceDetailMainContent(
-                          serviceTitle:
-                          widget.serviceTitle,
-                          onHealthFacilityTap:
-                          _isHealthDirectory
-                              ? () {
-                            _openServiceAccess(
-                              context,
-                            );
-                          }
-                              : null,
-                          onAccessServiceTap:
-                          _canAccessFromMainContent
-                              ? () {
-                            _handleAccessService(
-                              context,
-                            );
-                          }
-                              : null,
-                        ),
-                        const Divider(
-                          height: 40,
-                          thickness: 0.4,
-                        ),
-                        ServiceDetailSupportSection(
-                          serviceTitle:
-                          widget.serviceTitle,
-                        ),
-                        const Divider(
-                          height: 40,
-                          thickness: 0.4,
-                        ),
-                        ServiceReviewRelatedSection(
-                          showRelatedService:
-                          !_isBirthCertificate,
-                        ),
-                        const SizedBox(height: 52),
-                      ],
-                    ),
-                  ),
-                  const AppFooter(),
-                ],
-              ),
+            child: _buildDetailContent(
+              context: context,
+              detail: detail,
             ),
           ),
         ],
@@ -357,18 +310,86 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     );
   }
 
-  bool get _canAccessFromMainContent {
-    return _isBirthCertificate ||
-        _isBpjsMembership ||
-        _isBpjsMembershipAddition ||
-        _isQueueRegistration ||
-        _isBansosCheck ||
-        _isBpomProductCheck;
+  Widget _buildDetailContent({
+    required BuildContext context,
+    required ServiceDetailEntity detail,
+  }) {
+    final showSubmissionStatus =
+        _isBirthCertificate && _hasSubmittedApplication;
+
+    final title = detail.nama.trim().isNotEmpty
+        ? detail.nama.trim()
+        : widget.serviceTitle;
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          BreadcrumbWidget(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            items: [
+              const BreadcrumbItem(label: 'Beranda'),
+              const BreadcrumbItem(label: 'Layanan Publik'),
+              BreadcrumbItem(label: title),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (showSubmissionStatus)
+                  _SubmittedServiceOverviewCard(
+                    title: title,
+                    submissionId: '1234567890',
+                    onCopyTap: _copySubmissionId,
+                    onShareTap: () {},
+                  )
+                else
+                  ServiceDetailOverviewCard(
+                    title: title,
+                    status: detail.status,
+                    updatedAt: detail.updatedAt,
+                    onAccessTap: () {
+                      _handleAccessService(
+                        context,
+                      );
+                    },
+                  ),
+                const SizedBox(height: 24),
+                ServiceDetailMainContent(
+                  detail: detail,
+                  onHealthFacilityTap: _isHealthDirectory
+                      ? () {
+                    _openServiceAccess(context);
+                  }
+                      : null,
+                  onAccessServiceTap: _canAccessFromMainContent
+                      ? () {
+                    _handleAccessService(context);
+                  }
+                      : null,
+                ),
+                const Divider(height: 40, thickness: 0.4),
+                ServiceDetailSupportSection(
+                  detail: detail,
+                ),
+                const Divider(height: 40, thickness: 0.4),
+                ServiceReviewRelatedSection(
+                  showRelatedService: !_isBirthCertificate,
+                ),
+                const SizedBox(height: 52),
+              ],
+            ),
+          ),
+          const AppFooter(),
+        ],
+      ),
+    );
   }
 }
 
-class _SubmittedServiceOverviewCard
-    extends StatelessWidget {
+class _SubmittedServiceOverviewCard extends StatelessWidget {
   final String title;
   final String submissionId;
   final VoidCallback onCopyTap;
@@ -394,8 +415,7 @@ class _SubmittedServiceOverviewCard
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
-        crossAxisAlignment:
-        CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             title,
@@ -433,14 +453,12 @@ class _SubmittedServiceOverviewCard
             child: OutlinedButton.icon(
               onPressed: onShareTap,
               style: OutlinedButton.styleFrom(
-                foregroundColor:
-                const Color(0xFF252525),
+                foregroundColor: const Color(0xFF252525),
                 side: const BorderSide(
                   color: Color(0xFFE1E4E8),
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius:
-                  BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
               icon: const Icon(
@@ -468,8 +486,7 @@ class _SubmittedServiceOverviewCard
               borderRadius: BorderRadius.circular(9),
             ),
             child: Column(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Row(
                   children: [
@@ -479,8 +496,7 @@ class _SubmittedServiceOverviewCard
                         style: TextStyle(
                           color: Color(0xFF252525),
                           fontSize: 16,
-                          fontWeight:
-                          FontWeight.w700,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
@@ -500,11 +516,9 @@ class _SubmittedServiceOverviewCard
                     const SizedBox(width: 7),
                     InkWell(
                       onTap: onCopyTap,
-                      borderRadius:
-                      BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(4),
                       child: const Padding(
-                        padding:
-                        EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 3,
                           vertical: 2,
                         ),
@@ -513,18 +527,15 @@ class _SubmittedServiceOverviewCard
                             Icon(
                               Icons.copy_outlined,
                               size: 15,
-                              color:
-                              Color(0xFF062F5E),
+                              color: Color(0xFF062F5E),
                             ),
                             SizedBox(width: 4),
                             Text(
                               'Salin',
                               style: TextStyle(
-                                color:
-                                Color(0xFF062F5E),
+                                color: Color(0xFF062F5E),
                                 fontSize: 13,
-                                fontWeight:
-                                FontWeight.w600,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
@@ -555,31 +566,26 @@ class _SubmittedServiceOverviewCard
                       style: TextStyle(
                         color: Color(0xFF666666),
                         fontSize: 13,
-                        fontWeight:
-                        FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 ClipRRect(
-                  borderRadius:
-                  BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(20),
                   child: const LinearProgressIndicator(
                     value: 0.5,
                     minHeight: 5,
-                    backgroundColor:
-                    Color(0xFFE8EDF3),
-                    valueColor:
-                    AlwaysStoppedAnimation<Color>(
+                    backgroundColor: Color(0xFFE8EDF3),
+                    valueColor: AlwaysStoppedAnimation<Color>(
                       Color(0xFF2D7FF0),
                     ),
                   ),
                 ),
                 const SizedBox(height: 10),
                 const Row(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Text(
@@ -588,8 +594,7 @@ class _SubmittedServiceOverviewCard
                           color: Color(0xFF444444),
                           fontSize: 13.5,
                           height: 1.3,
-                          fontWeight:
-                          FontWeight.w700,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
@@ -599,8 +604,7 @@ class _SubmittedServiceOverviewCard
                       style: TextStyle(
                         color: Color(0xFF555555),
                         fontSize: 12,
-                        fontWeight:
-                        FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],

@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/failure.dart';
+import '../../domain/entities/service_access_type.dart';
 import '../../domain/repositories/service_access_repository.dart';
 import 'service_access_event.dart';
 import 'service_access_state.dart';
@@ -21,24 +22,6 @@ class ServiceAccessBloc extends Bloc<ServiceAccessEvent, ServiceAccessState> {
       ServiceAccessSearchRequested event,
       Emitter<ServiceAccessState> emit,
       ) async {
-    if (event.token.trim().isEmpty) {
-      emit(
-        state.copyWith(
-          listStatus: ServiceAccessListStatus.failure,
-          type: event.type,
-          hasSearched: true,
-          items: const [],
-          hasNextPage: false,
-          currentPage: event.page,
-          limit: event.limit,
-          query: event.query,
-          category: event.category,
-          listErrorMessage: _loginRequiredMessage,
-        ),
-      );
-      return;
-    }
-
     emit(
       state.copyWith(
         listStatus: ServiceAccessListStatus.loading,
@@ -60,13 +43,16 @@ class ServiceAccessBloc extends Bloc<ServiceAccessEvent, ServiceAccessState> {
         limit: event.limit,
         query: event.query,
         category: event.category,
+        fetchAll: event.type == ServiceAccessSearchType.healthFacility,
       );
+
+      final totalPages = event.limit <= 0 ? 1 : (items.length / event.limit).ceil();
 
       emit(
         state.copyWith(
           listStatus: ServiceAccessListStatus.success,
           items: items,
-          hasNextPage: items.length >= event.limit,
+          hasNextPage: event.page < totalPages,
           clearListError: true,
         ),
       );
@@ -86,18 +72,6 @@ class ServiceAccessBloc extends Bloc<ServiceAccessEvent, ServiceAccessState> {
       ServiceAccessDetailRequested event,
       Emitter<ServiceAccessState> emit,
       ) async {
-    if (event.token.trim().isEmpty) {
-      emit(
-        state.copyWith(
-          detailStatus: ServiceAccessDetailStatus.failure,
-          type: event.type,
-          clearDetail: true,
-          detailErrorMessage: _loginRequiredMessage,
-        ),
-      );
-      return;
-    }
-
     emit(
       state.copyWith(
         detailStatus: ServiceAccessDetailStatus.loading,
@@ -150,9 +124,6 @@ class ServiceAccessBloc extends Bloc<ServiceAccessEvent, ServiceAccessState> {
       ),
     );
   }
-
-  static const String _loginRequiredMessage =
-      'Silakan masuk terlebih dahulu untuk menggunakan layanan ini.';
 
   String _errorMessage(Object error) {
     if (error is Failure) {

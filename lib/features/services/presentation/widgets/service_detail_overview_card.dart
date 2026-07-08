@@ -4,15 +4,109 @@ import '../../../../app/theme/app_colors.dart';
 
 class ServiceDetailOverviewCard extends StatelessWidget {
   final String title;
+  final String status;
+  final String? updatedAt;
   final VoidCallback? onShareTap;
   final VoidCallback? onAccessTap;
 
   const ServiceDetailOverviewCard({
     super.key,
     required this.title,
+    this.status = '',
+    this.updatedAt,
     this.onShareTap,
     this.onAccessTap,
   });
+
+  String get _statusLabel {
+    final normalizedStatus = status.trim().toUpperCase();
+
+    if (normalizedStatus == 'PUBLISHED') {
+      return 'Aktif';
+    }
+
+    if (normalizedStatus == 'DRAFT') {
+      return 'Draft';
+    }
+
+    if (normalizedStatus == 'ARCHIVED') {
+      return 'Arsip';
+    }
+
+    if (normalizedStatus.isEmpty) {
+      return '-';
+    }
+
+    return status;
+  }
+
+  Color get _statusTextColor {
+    final normalizedStatus = status.trim().toUpperCase();
+
+    if (normalizedStatus == 'PUBLISHED') {
+      return const Color(0xFF2D9A4D);
+    }
+
+    if (normalizedStatus == 'DRAFT') {
+      return const Color(0xFFB7791F);
+    }
+
+    if (normalizedStatus == 'ARCHIVED') {
+      return const Color(0xFF666666);
+    }
+
+    return AppColors.contentSecondary;
+  }
+
+  Color get _statusBackgroundColor {
+    final normalizedStatus = status.trim().toUpperCase();
+
+    if (normalizedStatus == 'PUBLISHED') {
+      return const Color(0xFFEAF8EE);
+    }
+
+    if (normalizedStatus == 'DRAFT') {
+      return const Color(0xFFFFF4DB);
+    }
+
+    if (normalizedStatus == 'ARCHIVED') {
+      return const Color(0xFFF1F3F5);
+    }
+
+    return const Color(0xFFF1F3F5);
+  }
+
+  String get _updatedDateText {
+    final rawDate = updatedAt?.trim();
+
+    if (rawDate == null || rawDate.isEmpty) {
+      return '-';
+    }
+
+    final parsedDate = DateTime.tryParse(rawDate);
+
+    if (parsedDate == null) {
+      return rawDate;
+    }
+
+    const monthNames = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agu',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
+    ];
+
+    return '${parsedDate.day} ${monthNames[parsedDate.month]} ${parsedDate.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,18 +148,18 @@ class ServiceDetailOverviewCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 5),
                   RichText(
-                    text: const TextSpan(
-                      style: TextStyle(
+                    text: TextSpan(
+                      style: const TextStyle(
                         color: AppColors.contentSecondary,
-                        fontSize: 11,
+                        fontSize: 12,
                       ),
                       children: [
-                        TextSpan(
-                          text: 'Terakhir diperbaharui ',
+                        const TextSpan(
+                          text: 'Terakhir diperbarui ',
                         ),
                         TextSpan(
-                          text: '25 Feb 2026',
-                          style: TextStyle(
+                          text: _updatedDateText,
+                          style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             color: AppColors.contentPrimary,
                           ),
@@ -81,14 +175,14 @@ class ServiceDetailOverviewCard extends StatelessWidget {
                   vertical: 3,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEAF8EE),
+                  color: _statusBackgroundColor,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
-                  'Aktif',
+                child: Text(
+                  _statusLabel,
                   style: TextStyle(
-                    color: Color(0xFF2D9A4D),
-                    fontSize: 10,
+                    color: _statusTextColor,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

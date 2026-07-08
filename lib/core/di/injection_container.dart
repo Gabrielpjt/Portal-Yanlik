@@ -32,6 +32,10 @@ import '../../features/services/data/datasources/service_access_remote_datasourc
 import '../../features/services/data/repositories/service_access_repository_impl.dart';
 import '../../features/services/domain/repositories/service_access_repository.dart';
 import '../../features/services/presentation/bloc/service_access_bloc.dart';
+import '../../features/services/data/datasources/service_detail_remote_datasource.dart';
+import '../../features/services/data/repositories/service_detail_repository_impl.dart';
+import '../../features/services/domain/repositories/service_detail_repository.dart';
+import '../../features/services/presentation/bloc/service_detail_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -89,6 +93,11 @@ Future<void> setupDependencies() async {
       getIt<ApiClient>(instanceName: 'PortalApiClient'),
     ),
   );
+  getIt.registerLazySingleton<ServiceDetailRemoteDatasource>(
+        () => ServiceDetailRemoteDatasource(
+      getIt<ApiClient>(instanceName: 'PortalApiClient'),
+    ),
+  );
 
   // ── Repositories ──
   getIt.registerLazySingleton<PostRepository>(
@@ -117,6 +126,11 @@ Future<void> setupDependencies() async {
   getIt.registerLazySingleton<ServiceAccessRepository>(
         () => ServiceAccessRepositoryImpl(
       getIt<ServiceAccessRemoteDatasource>(),
+    ),
+  );
+  getIt.registerLazySingleton<ServiceDetailRepository>(
+        () => ServiceDetailRepositoryImpl(
+      getIt<ServiceDetailRemoteDatasource>(),
     ),
   );
 
@@ -153,6 +167,11 @@ Future<void> setupDependencies() async {
   getIt.registerFactory<ServiceAccessBloc>(
         () => ServiceAccessBloc(
       repository: getIt<ServiceAccessRepository>(),
+    ),
+  );
+  getIt.registerFactory<ServiceDetailBloc>(
+        () => ServiceDetailBloc(
+      repository: getIt<ServiceDetailRepository>(),
     ),
   );
 }

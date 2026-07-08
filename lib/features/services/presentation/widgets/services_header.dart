@@ -1,8 +1,27 @@
 import 'package:flutter/material.dart';
+
 import '../../../../app/theme/app_colors.dart';
+import '../../../../shared/widgets/breadcrumb_widget.dart';
 
 class ServicesHeader extends StatelessWidget {
-  const ServicesHeader({super.key});
+  final int totalLayanan;
+  final int totalProgram;
+  final ValueChanged<String>? onSearchChanged;
+
+  const ServicesHeader({
+    super.key,
+    required this.totalLayanan,
+    this.totalProgram = 0,
+    this.onSearchChanged,
+  });
+
+  String get _subtitle {
+    if (totalProgram > 0) {
+      return '$totalLayanan Layanan    $totalProgram Program';
+    }
+
+    return '$totalLayanan Layanan';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -12,35 +31,14 @@ class ServicesHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Breadcrumb
-          Row(
-            children: [
-              const Text(
-                'Beranda',
-                style: TextStyle(
-                  color: AppColors.contentSecondary,
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(width: 6),
-              const Icon(
-                Icons.chevron_right,
-                size: 16,
-                color: AppColors.contentSecondary,
-              ),
-              const SizedBox(width: 6),
-              const Text(
-                'Layanan Publik',
-                style: TextStyle(
-                  color: AppColors.brandPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+          const BreadcrumbWidget(
+            padding: EdgeInsets.zero,
+            items: [
+              BreadcrumbItem(label: 'Beranda'),
+              BreadcrumbItem(label: 'Layanan Publik'),
             ],
           ),
           const SizedBox(height: 16),
-          // Title
           const Text(
             'Layanan Publik',
             style: TextStyle(
@@ -50,17 +48,16 @@ class ServicesHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          // Subtitle
-          const Text(
-            '20 Layanan    6 Program',
-            style: TextStyle(
+          Text(
+            _subtitle,
+            style: const TextStyle(
               color: AppColors.contentSecondary,
               fontSize: 14,
             ),
           ),
           const SizedBox(height: 16),
-          // Search Bar
           TextField(
+            onChanged: onSearchChanged,
             decoration: InputDecoration(
               hintText: 'Cari layanan atau program',
               hintStyle: const TextStyle(
