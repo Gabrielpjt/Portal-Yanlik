@@ -1,0 +1,252 @@
+workflows:
+  # ============================================
+  # WORKFLOW #1: APPETIZE.IO DEMO (START HERE!)
+  # ============================================
+  # Use this for browser demos - NO Apple account needed!
+  # Output: appetize-demo.zip
+  # Time: ~5-10 minutes
+  # Cost: FREE
+  ios-appetize-workflow:
+    name: iOS Build for Appetize.io Demo
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "com.kominfo.portallayananpublik"
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Install pods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Build iOS for simulator (Appetize compatible)
+        script: |
+          flutter build ios --debug --no-codesign --simulator
+      - name: Create .app bundle for Appetize
+        script: |
+          cd build/ios/iphonesimulator
+          # Appetize needs the .app folder
+          APP_NAME=$(ls -d *.app | head -n 1)
+          echo "App bundle: $APP_NAME"
+          # Create zip for Appetize
+          zip -r appetize-demo.zip "$APP_NAME"
+          echo "✓ Created appetize-demo.zip"
+          ls -lh appetize-demo.zip
+      - name: Verify zip file
+        script: |
+          cd build/ios/iphonesimulator
+          unzip -l appetize-demo.zip | head -n 20
+    artifacts:
+      - build/ios/iphonesimulator/appetize-demo.zip
+      - build/ios/iphonesimulator/*.app
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: true
+
+  # ============================================
+  # WORKFLOW #2: PRODUCTION (REQUIRES APPLE DEVELOPER $99/year)
+  # ============================================
+  # IMPORTANT: This requires Apple Developer Account!
+  # Only use this when ready for TestFlight/App Store
+  # If you get "No matching profiles" error, use ios-appetize-workflow instead
+  ios-workflow:
+    name: iOS Production Build (Requires Apple Developer)
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    # DISABLE THIS WORKFLOW until Apple Developer is connected
+    # To enable: uncomment lines below
+    # integrations:
+    #   app_store_connect: codemagic
+    environment:
+      # DISABLE code signing until Apple Developer connected
+      # ios_signing:
+      #   distribution_type: app_store
+      #   bundle_identifier: com.kominfo.portallayananpublik
+      vars:
+        BUNDLE_ID: "com.kominfo.portallayananpublik"
+        XCODE_WORKSPACE: "Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      # - name: Set up code signing settings on Xcode project
+      #   script: |
+      #     xcode-project use-profiles
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Install pods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Flutter analyze
+        script: |
+          flutter analyze
+      - name: Flutter unit tests
+        script: |
+          flutter test
+        ignore_failure: true
+      # TEMPORARY: Build without signing for testing
+      # Replace with "flutter build ipa --release" after Apple Developer setup
+      - name: Build iOS (no signing - for testing only)
+        script: |
+          flutter build ios --release --no-codesign
+          echo "⚠️  WARNING: This is unsigned build"
+          echo "⚠️  To enable signing, connect Apple Developer account in Codemagic"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        auth: integration
+        # Configuration for automated TestFlight upload
+        submit_to_testflight: true
+        beta_groups:
+          - Internal Testers
+        # Uncomment to submit to App Store after TestFlight
+        # submit_to_app_store: true
+
+  android-workflow:
+    name: Android Workflow
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    environment:
+      android_signing:
+        - keystore_reference
+      groups:
+        - google_play
+      vars:
+        PACKAGE_NAME: "com.kominfo.portallayananpublik"
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Flutter analyze
+        script: |
+          flutter analyze
+      - name: Flutter unit tests
+        script: |
+          flutter test
+        ignore_failure: true
+      - name: Build AAB with Flutter
+        script: |
+          flutter build appbundle --release \
+            --build-name=1.0.0 \
+            --build-number=$BUILD_NUMBER
+    artifacts:
+      - build/**/outputs/**/*.aab
+      - build/**/outputs/**/mapping.txt
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: true
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true
+
+  # Workflow untuk testing cepat tanpa signing
+  ios-debug-workflow:
+    name: iOS Debug Build
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Install pods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Flutter analyze
+        script: |
+          flutter analyze
+      - name: Build iOS debug
+        script: |
+          flutter build ios --debug --no-codesign
+    artifacts:
+      - build/ios/iphoneos/*.app
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: true
+
+  # Workflow khusus untuk Appetize.io demo
+  ios-appetize-workflow:
+    name: iOS Build for Appetize.io
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "com.kominfo.portallayananpublik"
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Install pods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Build iOS for simulator (Appetize compatible)
+        script: |
+          flutter build ios --debug --no-codesign --simulator
+      - name: Create .app bundle for Appetize
+        script: |
+          cd build/ios/iphonesimulator
+          # Appetize needs the .app folder
+          APP_NAME=$(ls -d *.app | head -n 1)
+          echo "App bundle: $APP_NAME"
+          # Create zip for Appetize
+          zip -r appetize-demo.zip "$APP_NAME"
+          echo "✓ Created appetize-demo.zip"
+          ls -lh appetize-demo.zip
+      - name: Verify zip file
+        script: |
+          cd build/ios/iphonesimulator
+          unzip -l appetize-demo.zip | head -n 20
+    artifacts:
+      - build/ios/iphonesimulator/appetize-demo.zip
+      - build/ios/iphonesimulator/*.app
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: true
