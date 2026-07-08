@@ -9,6 +9,7 @@ import '../../../../shared/widgets/app_pagination.dart';
 import '../../../../shared/widgets/breadcrumb_widget.dart';
 import '../../../../shared/widgets/filter_chips_row.dart';
 import '../../../../shared/widgets/filter_sort_row.dart';
+import 'benefit_detail_page.dart';
 
 class BenefitPage extends StatefulWidget {
   final bool isLoggedIn;
@@ -263,13 +264,33 @@ class _BenefitPageState extends State<BenefitPage> {
                   const SizedBox(height: 16),
 
                   // Benefit Cards List
-                  ..._filtered.map((b) => _BenefitListCard(
-                        name: b['name'] as String,
-                        amount: b['amount'] as String,
-                        period: b['period'] as String,
-                        status: b['status'] as String,
-                        cairDate: b['cair'] as String?,
-                      )),
+                  ..._filtered.map((b) {
+                    final benefitName = b['name'] as String;
+
+                    return _BenefitListCard(
+                      name: benefitName,
+                      amount: b['amount'] as String,
+                      period: b['period'] as String,
+                      status: b['status'] as String,
+                      cairDate: b['cair'] as String?,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) {
+                              return BenefitDetailPage(
+                                benefitTitle: benefitName,
+                                isLoggedIn: widget.isLoggedIn,
+                                onLoginTap: widget.onLoginTap,
+                                onBerandaTap: widget.onBerandaTap,
+                                onAkunSayaTap: widget.onAkunSayaTap,
+                                onKeluarAkunTap: widget.onKeluarAkunTap,
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    );
+                  }),
 
                   const SizedBox(height: 16),
 
@@ -303,6 +324,7 @@ class _BenefitListCard extends StatelessWidget {
   final String period;
   final String status;
   final String? cairDate;
+  final VoidCallback? onTap;
 
   const _BenefitListCard({
     required this.name,
@@ -310,85 +332,107 @@ class _BenefitListCard extends StatelessWidget {
     required this.period,
     required this.status,
     this.cairDate,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.strokePrimary),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Name + Arrow
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  name,
-                  style: const TextStyle(
-                    color: AppColors.brandPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const Icon(
-                Icons.arrow_outward,
-                size: 16,
-                color: AppColors.contentSecondary,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 6),
-
-          // Amount
-          RichText(
-            text: TextSpan(
-              style: const TextStyle(color: AppColors.brandPrimary),
-              children: [
-                const TextSpan(
-                  text: 'Rp. ',
-                  style: TextStyle(fontSize: 14),
-                ),
-                TextSpan(
-                  text: amount,
-                  style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.strokePrimary,
             ),
           ),
-
-          const SizedBox(height: 6),
-
-          // Period + Status Badges
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                period,
-                style: const TextStyle(
-                  color: AppColors.contentSecondary,
-                  fontSize: 13,
+              // Name + Arrow
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: const TextStyle(
+                        color: AppColors.brandPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.arrow_outward,
+                    size: 16,
+                    color: AppColors.contentSecondary,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 6),
+
+              // Amount
+              RichText(
+                text: TextSpan(
+                  style: const TextStyle(
+                    color: AppColors.brandPrimary,
+                  ),
+                  children: [
+                    const TextSpan(
+                      text: 'Rp. ',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.contentSecondary,
+                      ),
+                    ),
+                    TextSpan(
+                      text: amount,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.brandPrimary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
-              _Badge(label: status, isGreen: true),
-              if (cairDate != null) ...[
-                const SizedBox(width: 6),
-                _Badge(label: cairDate!, isGreen: false),
-              ],
+
+              const SizedBox(height: 6),
+
+              // Period + Status Badges
+              Row(
+                children: [
+                  Text(
+                    period,
+                    style: const TextStyle(
+                      color: AppColors.contentSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const Spacer(),
+                  _Badge(
+                    label: status,
+                    isGreen: false,
+                  ),
+                  if (cairDate != null) ...[
+                    const SizedBox(width: 6),
+                    _Badge(
+                      label: cairDate!,
+                      isGreen: true,
+                    ),
+                  ],
+                ],
+              ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

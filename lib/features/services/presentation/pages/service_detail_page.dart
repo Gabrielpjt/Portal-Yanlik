@@ -13,6 +13,7 @@ import 'birth_certificate_application_page.dart';
 import 'bpjs_membership_addition_application_page.dart';
 import 'queue_registration_application_page.dart';
 import 'service_access_search_page.dart';
+import 'bansos_check_page.dart';
 
 class ServiceDetailPage extends StatefulWidget {
   final VoidCallback? onMenuTap;
@@ -63,7 +64,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   }
 
   bool get _isHealthFacility {
-    return widget.serviceTitle == 'Cari Fasilitas Kesehatan' ||
+    return widget.serviceTitle == 'Cek Fasilitas Kesehatan' ||
         widget.serviceTitle ==
             'Cari Dokter dan Fasilitas Kesehatan' ||
         widget.serviceTitle.startsWith(
@@ -103,8 +104,20 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
             'Pengurusan Akta Kelahiran';
   }
 
+  bool get _isBansosCheck {
+    return widget.serviceTitle == 'Mengecek Bantuan Sosial' ||
+        widget.serviceTitle == 'Cek Bantuan Sosial' ||
+        widget.serviceTitle == 'Pengecekan Bantuan Sosial';
+  }
+
+  bool get _isBpomProductCheck {
+    return widget.serviceTitle == 'Pengecekan Produk BPOM' ||
+        widget.serviceTitle == 'Cek Produk BPOM' ||
+        widget.serviceTitle == 'Mengecek Produk BPOM';
+  }
+
   bool get _usesServiceAccess {
-    return _isHealthDirectory || _isBpjsMembership;
+    return _isHealthDirectory || _isBpjsMembership || _isBpomProductCheck;
   }
 
   void _openServiceAccess(BuildContext context) {
@@ -187,7 +200,22 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
       return;
     }
 
-    // navigasi layanan lain tambahin disini
+    if (_isBansosCheck) {
+      _openBansosCheckApplication();
+      return;
+    }
+  }
+
+  Future<void> _openBansosCheckApplication() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => BansosCheckPage(
+          isLoggedIn: widget.isLoggedIn,
+          onMenuTap: widget.onMenuTap,
+          onLoginTap: widget.onLoginTap,
+        ),
+      ),
+    );
   }
 
   Future<void> _copySubmissionId() async {
@@ -333,7 +361,9 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     return _isBirthCertificate ||
         _isBpjsMembership ||
         _isBpjsMembershipAddition ||
-        _isQueueRegistration;
+        _isQueueRegistration ||
+        _isBansosCheck ||
+        _isBpomProductCheck;
   }
 }
 
@@ -556,7 +586,7 @@ class _SubmittedServiceOverviewCard
                         'Pemeriksaan oleh petugas.',
                         style: TextStyle(
                           color: Color(0xFF444444),
-                          fontSize: 14,
+                          fontSize: 13.5,
                           height: 1.3,
                           fontWeight:
                           FontWeight.w700,

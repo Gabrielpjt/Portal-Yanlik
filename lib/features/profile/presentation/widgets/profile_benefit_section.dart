@@ -4,11 +4,15 @@ import '../../../../app/theme/app_colors.dart';
 class ProfileBenefitSection extends StatelessWidget {
   final List<String> benefits;
   final String totalBenefitsLabel;
+  final VoidCallback? onSeeAllTap;
+  final void Function(String benefitName)? onBenefitTap;
 
   const ProfileBenefitSection({
     super.key,
     required this.benefits,
     required this.totalBenefitsLabel,
+    this.onSeeAllTap,
+    this.onBenefitTap,
   });
 
   @override
@@ -51,7 +55,7 @@ class ProfileBenefitSection extends StatelessWidget {
                 ),
               ),
               GestureDetector(
-                onTap: () {},
+                onTap: onSeeAllTap,
                 child: const Text(
                   'Lihat semua',
                   style: TextStyle(
@@ -68,7 +72,14 @@ class ProfileBenefitSection extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              ...benefits.map((b) => _BenefitChip(label: b)),
+              ...benefits.map(
+                    (b) => _BenefitChip(
+                  label: b,
+                  onTap: () {
+                    onBenefitTap?.call(b);
+                  },
+                ),
+              ),
               const _BenefitChip(label: '+2', isMore: true),
             ],
           ),
@@ -81,12 +92,17 @@ class ProfileBenefitSection extends StatelessWidget {
 class _BenefitChip extends StatelessWidget {
   final String label;
   final bool isMore;
+  final VoidCallback? onTap;
 
-  const _BenefitChip({required this.label, this.isMore = false});
+  const _BenefitChip({
+    required this.label,
+    this.isMore = false,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: isMore ? const Color(0xFFF1F5F9) : Colors.white,
@@ -104,6 +120,16 @@ class _BenefitChip extends StatelessWidget {
           fontWeight: isMore ? FontWeight.bold : FontWeight.w500,
         ),
       ),
+    );
+
+    if (onTap == null || isMore) {
+      return chip;
+    }
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(30),
+      child: chip,
     );
   }
 }

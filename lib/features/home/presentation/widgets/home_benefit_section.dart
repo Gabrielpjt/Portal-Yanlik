@@ -6,11 +6,20 @@ import '../../../../app/theme/app_colors.dart';
 class HomeBenefitSection extends StatefulWidget {
   final VoidCallback? onLihatSemuaBenefit;
   final VoidCallback? onLihatSemuaDokumen;
+  final void Function(String benefitName)? onBenefitTap;
+  final void Function(
+      String documentName,
+      String category,
+      String number,
+      bool verified,
+      )? onDocumentTap;
 
   const HomeBenefitSection({
     super.key,
     this.onLihatSemuaBenefit,
     this.onLihatSemuaDokumen,
+    this.onBenefitTap,
+    this.onDocumentTap,
   });
 
   @override
@@ -103,9 +112,9 @@ class _HomeBenefitSectionState extends State<HomeBenefitSection>
         const SizedBox(height: 20),
 
         // ── Section Title ───────────────────────────────────────────
-        const Text(
-          'Benefit Anda',
-          style: TextStyle(
+        Text(
+          _tabController.index == 0 ? 'Benefit Anda' : 'E-Dokumen Anda',
+          style: const TextStyle(
             color: AppColors.brandPrimary,
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -204,12 +213,17 @@ class _HomeBenefitSectionState extends State<HomeBenefitSection>
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final b = _benefits[index];
+          final benefitName = b['name'] as String;
+
           return _BenefitCard(
-            name: b['name']!,
-            amount: b['amount']!,
-            period: b['period']!,
-            status: b['status']!,
-            cairDate: b['cair'],
+            name: benefitName,
+            amount: b['amount'] as String,
+            period: b['period'] as String,
+            status: b['status'] as String,
+            cairDate: b['cair'] as String?,
+            onTap: () {
+              widget.onBenefitTap?.call(benefitName);
+            },
           );
         },
       ),
@@ -225,11 +239,25 @@ class _HomeBenefitSectionState extends State<HomeBenefitSection>
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final d = _documents[index];
+
+          final documentName = d['name'] as String;
+          final category = d['category'] as String;
+          final number = d['number'] as String;
+          final verified = d['verified'] as bool;
+
           return _DocumentCard(
-            name: d['name'] as String,
-            category: d['category'] as String,
-            number: d['number'] as String,
-            verified: d['verified'] as bool,
+            name: documentName,
+            category: category,
+            number: number,
+            verified: verified,
+            onTap: () {
+              widget.onDocumentTap?.call(
+                documentName,
+                category,
+                number,
+                verified,
+              );
+            },
           );
         },
       ),
@@ -245,6 +273,7 @@ class _BenefitCard extends StatelessWidget {
   final String period;
   final String status;
   final String? cairDate;
+  final VoidCallback? onTap;
 
   const _BenefitCard({
     required this.name,
@@ -252,90 +281,95 @@ class _BenefitCard extends StatelessWidget {
     required this.period,
     required this.status,
     this.cairDate,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 200,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.strokePrimary),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Name + Arrow
-          Row(
+        child: Container(
+          width: 200,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.strokePrimary),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  name,
-                  style: const TextStyle(
-                    color: AppColors.brandPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+              // Name + Arrow
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: const TextStyle(
+                        color: AppColors.brandPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.arrow_outward,
+                    size: 14,
+                    color: AppColors.contentSecondary,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 4),
+
+              // Amount
+              RichText(
+                text: TextSpan(
+                  style: const TextStyle(color: AppColors.brandPrimary),
+                  children: [
+                    const TextSpan(
+                      text: 'Rp. ',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    TextSpan(
+                      text: amount,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 4),
-              const Icon(
-                Icons.arrow_outward,
-                size: 14,
-                color: AppColors.contentSecondary,
+
+              const SizedBox(height: 4),
+
+              // Period
+              Text(
+                period,
+                style: const TextStyle(
+                  color: AppColors.contentSecondary,
+                  fontSize: 11,
+                ),
+              ),
+              const SizedBox(height: 4),
+              // Status badges
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: [
+                  _StatusBadge(label: status, isGreen: true),
+                  if (cairDate != null)
+                    _StatusBadge(label: cairDate!, isGreen: false),
+                ],
               ),
             ],
           ),
-
-          const SizedBox(height: 4),
-
-          // Amount
-          RichText(
-            text: TextSpan(
-              style: const TextStyle(color: AppColors.brandPrimary),
-              children: [
-                const TextSpan(
-                  text: 'Rp. ',
-                  style: TextStyle(fontSize: 13),
-                ),
-                TextSpan(
-                  text: amount,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 4),
-
-          // Period
-          Text(
-            period,
-            style: const TextStyle(
-              color: AppColors.contentSecondary,
-              fontSize: 11,
-            ),
-          ),
-          const SizedBox(height: 4),
-          // Status badges
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: [
-              _StatusBadge(label: status, isGreen: true),
-              if (cairDate != null)
-                _StatusBadge(label: cairDate!, isGreen: false),
-            ],
-          ),
-        ],
-      ),
+        ),
     );
   }
 }
@@ -375,100 +409,114 @@ class _DocumentCard extends StatelessWidget {
   final String category;
   final String number;
   final bool verified;
+  final VoidCallback? onTap;
 
   const _DocumentCard({
     required this.name,
     required this.category,
     required this.number,
     required this.verified,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 220,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.strokePrimary),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Name + Arrow
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  name,
-                  style: const TextStyle(
-                    color: AppColors.brandPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const Icon(
-                Icons.arrow_outward,
-                size: 14,
-                color: AppColors.contentSecondary,
-              ),
-            ],
-          ),
-          Text(
-            category,
-            style: const TextStyle(
-              color: AppColors.contentSecondary,
-              fontSize: 12,
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // Number + Verify + Unduh
-          Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Text(
-                      number,
-                      style: const TextStyle(
-                        color: AppColors.contentPrimary,
-                        fontSize: 12,
-                      ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 220,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.strokePrimary),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Name + Arrow
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    name,
+                    style: const TextStyle(
+                      color: AppColors.brandPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                     ),
-                    if (verified) ...[
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.verified,
-                        size: 14,
-                        color: Color(0xFF2563EB),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.strokePrimary),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Text(
-                  'Unduh',
-                  style: TextStyle(
-                    color: AppColors.brandPrimary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const Icon(
+                  Icons.arrow_outward,
+                  size: 14,
+                  color: AppColors.contentSecondary,
+                ),
+              ],
+            ),
+
+            Text(
+              category,
+              style: const TextStyle(
+                color: AppColors.contentSecondary,
+                fontSize: 12,
               ),
-            ],
-          ),
-        ],
+            ),
+
+            const SizedBox(height: 10),
+
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          number,
+                          style: const TextStyle(
+                            color: AppColors.contentPrimary,
+                            fontSize: 12,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (verified) ...[
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.verified,
+                          size: 14,
+                          color: Color(0xFF2563EB),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.strokePrimary),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'Unduh',
+                    style: TextStyle(
+                      color: AppColors.brandPrimary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

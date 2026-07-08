@@ -11,6 +11,7 @@ class MainNavigationController {
   VoidCallback? _onLogin;
   VoidCallback? _onProfile;
   VoidCallback? _onProfileStatus;
+  VoidCallback? _onNotifications;
   VoidCallback? _onOpenMenu;
 
   bool get isAttached {
@@ -23,6 +24,7 @@ class MainNavigationController {
     required VoidCallback onLogin,
     required VoidCallback onProfile,
     required VoidCallback onProfileStatus,
+    required VoidCallback onNotifications,
     required VoidCallback onOpenMenu,
   }) {
     _onHome = onHome;
@@ -30,6 +32,7 @@ class MainNavigationController {
     _onLogin = onLogin;
     _onProfile = onProfile;
     _onProfileStatus = onProfileStatus;
+    _onNotifications = onNotifications;
     _onOpenMenu = onOpenMenu;
   }
 
@@ -39,6 +42,7 @@ class MainNavigationController {
     _onLogin = null;
     _onProfile = null;
     _onProfileStatus = null;
+    _onNotifications = null;
     _onOpenMenu = null;
   }
 
@@ -60,6 +64,10 @@ class MainNavigationController {
 
   void goProfileStatus() {
     _onProfileStatus?.call();
+  }
+
+  void goNotifications() {
+    _onNotifications?.call();
   }
 
   void openMenu() {

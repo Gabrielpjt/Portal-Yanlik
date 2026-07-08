@@ -1,25 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/di/injection_container.dart';
-import '../../../../shared/widgets/app_header.dart';
-import '../widgets/search_bar_widget.dart';
-import '../widgets/popular_topics_section.dart';
-import '../widgets/service_categories_section.dart';
-import '../widgets/latest_info_section.dart';
-import '../widgets/home_benefit_section.dart';
 import '../../../../shared/widgets/app_footer.dart';
-import '../../../benefit/presentation/pages/benefit_page.dart';
-import '../../../services/presentation/pages/service_detail_page.dart';
+import '../../../../shared/widgets/app_header.dart';
+
+import '../widgets/home_benefit_section.dart';
+import '../widgets/latest_info_section.dart';
+import '../widgets/popular_topics_section.dart';
+import '../widgets/search_bar_widget.dart';
+import '../widgets/service_categories_section.dart';
 import '../widgets/service_grid_item.dart';
+
+import '../../../benefit/presentation/pages/benefit_detail_page.dart';
+import '../../../benefit/presentation/pages/benefit_page.dart';
+import '../../../profile/presentation/pages/document_detail_page.dart';
+import '../../../services/presentation/pages/service_detail_page.dart';
+
 import '../../../informasi_layanan/presentation/bloc/informasi_layanan_bloc.dart';
 import '../../../informasi_layanan/presentation/bloc/informasi_layanan_event.dart';
 import '../../../kategori_layanan/presentation/bloc/kategori_layanan_bloc.dart';
 import '../../../kategori_layanan/presentation/bloc/kategori_layanan_event.dart';
+import '../../../layanan/domain/entities/layanan_entity.dart';
 import '../../../layanan/presentation/bloc/layanan_bloc.dart';
 import '../../../layanan/presentation/bloc/layanan_event.dart';
 import '../../../layanan/presentation/bloc/layanan_state.dart';
-import '../../../layanan/domain/entities/layanan_entity.dart';
 
 class HomePage extends StatelessWidget {
   final VoidCallback? onMenuTap;
@@ -29,6 +35,8 @@ class HomePage extends StatelessWidget {
   final VoidCallback? onEdokumenTap;
   final VoidCallback? onAkunSayaTap;
   final VoidCallback? onKeluarAkunTap;
+  final ValueChanged<String>? onServiceCategoryTap;
+  final VoidCallback? onInformasiLayananTap;
 
   const HomePage({
     super.key,
@@ -38,6 +46,8 @@ class HomePage extends StatelessWidget {
     this.onEdokumenTap,
     this.onAkunSayaTap,
     this.onKeluarAkunTap,
+    this.onServiceCategoryTap,
+    this.onInformasiLayananTap,
     this.isLoggedIn = false,
   });
 
@@ -66,19 +76,63 @@ class HomePage extends StatelessWidget {
                         const SearchBarWidget(),
                         const SizedBox(height: 24),
 
-                        // ── Benefit & E-Dokumen (saat login) ─────────────
                         if (isLoggedIn) ...[
                           HomeBenefitSection(
+                            onBenefitTap: (benefitName) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) {
+                                    return BenefitDetailPage(
+                                      benefitTitle: benefitName,
+                                      isLoggedIn: isLoggedIn,
+                                      onLoginTap: onLoginTap,
+                                      onBerandaTap: () {},
+                                      onAkunSayaTap: onAkunSayaTap,
+                                      onKeluarAkunTap: onKeluarAkunTap,
+                                    );
+                                  },
+                                ),
+                              );
+                            },
+                            onDocumentTap: (
+                                documentName,
+                                category,
+                                number,
+                                verified,
+                                ) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) {
+                                    return DocumentDetailPage(
+                                      onMenuTap: onMenuTap,
+                                      document: DocumentData(
+                                        title: documentName,
+                                        validUntil: '31 Des 2026',
+                                        isVerified: verified,
+                                        ownerName: 'Ayu Lestari',
+                                        ownerRole: 'Kepala keluarga',
+                                        documentNumber: number,
+                                        issueDate: '12 Jan 2026',
+                                        issuedBy:
+                                        'Dinas Kependudukan dan Pencatatan Sipil',
+                                      ),
+                                    );
+                                  },
+                                ),
+                              );
+                            },
                             onLihatSemuaBenefit: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (_) => BenefitPage(
-                                    isLoggedIn: isLoggedIn,
-                                    onLoginTap: onLoginTap,
-                                    onBerandaTap: () {},
-                                    onAkunSayaTap: onAkunSayaTap,
-                                    onKeluarAkunTap: onKeluarAkunTap,
-                                  ),
+                                  builder: (_) {
+                                    return BenefitPage(
+                                      isLoggedIn: isLoggedIn,
+                                      onLoginTap: onLoginTap,
+                                      onBerandaTap: () {},
+                                      onAkunSayaTap: onAkunSayaTap,
+                                      onKeluarAkunTap: onKeluarAkunTap,
+                                    );
+                                  },
                                 ),
                               );
                             },
@@ -87,7 +141,6 @@ class HomePage extends StatelessWidget {
                           const SizedBox(height: 28),
                         ],
 
-                        // ── Layanan Populer ──────────────────────────────
                         const Text(
                           'Layanan Populer',
                           style: TextStyle(
@@ -108,53 +161,89 @@ class HomePage extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
 
-                        // 2-column list with dynamic items
                         BlocProvider(
-                          create: (_) => getIt<LayananBloc>()..add(const FetchLayanan()),
+                          create: (_) {
+                            return getIt<LayananBloc>()
+                              ..add(const FetchLayanan());
+                          },
                           child: BlocBuilder<LayananBloc, LayananState>(
                             builder: (context, state) {
                               if (state.status == LayananStatus.loading ||
                                   state.status == LayananStatus.initial) {
-                                return const Center(child: CircularProgressIndicator());
-                              }
-                              if (state.status == LayananStatus.error) {
-                                return Center(
-                                  child: Text(
-                                    'Gagal memuat layanan: ${state.errorMessage}',
-                                    style: const TextStyle(color: Colors.red),
+                                return const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 24),
+                                    child: CircularProgressIndicator(),
                                   ),
                                 );
                               }
-                              if (state.items.isEmpty) {
-                                return const Center(
-                                  child: Text('Belum ada layanan populer.'),
+
+                              if (state.status == LayananStatus.error) {
+                                return Padding(
+                                  padding:
+                                  const EdgeInsets.symmetric(vertical: 16),
+                                  child: Center(
+                                    child: Text(
+                                      'Gagal memuat layanan: ${state.errorMessage}',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                  ),
                                 );
                               }
-                              // Limit to 6 items to match UI design if preferred, or show all
+
+                              if (state.items.isEmpty) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  child: Center(
+                                    child: Text('Belum ada layanan populer.'),
+                                  ),
+                                );
+                              }
+
                               final displayItems = state.items.take(6).toList();
-                              return _buildPopularServicesList(context, displayItems);
+
+                              return _buildPopularServicesList(
+                                context,
+                                displayItems,
+                              );
                             },
                           ),
                         ),
 
                         const SizedBox(height: 12),
-
-                        // Lihat Semua button — outlined full width
                         _buildLihatSemuaButton(),
                         const SizedBox(height: 32),
+
                         const PopularTopicsSection(),
                         const SizedBox(height: 32),
+
                         BlocProvider(
-                          create: (_) => getIt<KategoriLayananBloc>()
-                            ..add(const FetchKategoriLayanan()),
-                          child: const ServiceCategoriesSection(),
+                          create: (_) {
+                            return getIt<KategoriLayananBloc>()
+                              ..add(const FetchKategoriLayanan());
+                          },
+                          child: ServiceCategoriesSection(
+                            onLihatSemuaTap: onServicesTap,
+                            onCategoryTap: onServiceCategoryTap,
+                          ),
                         ),
+
                         const SizedBox(height: 32),
+
                         BlocProvider(
-                          create: (_) => getIt<InformasiLayananBloc>()
-                            ..add(const FetchInformasiLayanan()),
-                          child: const LatestInfoSection(),
+                          create: (_) {
+                            return getIt<InformasiLayananBloc>()
+                              ..add(const FetchInformasiLayanan());
+                          },
+                          child: LatestInfoSection(
+                            onLihatSemuaTap: onInformasiLayananTap,
+                            onCardTap: onInformasiLayananTap,
+                          ),
                         ),
+
                         const SizedBox(height: 32),
                       ],
                     ),
@@ -169,7 +258,10 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildPopularServicesList(BuildContext context, List<LayananEntity> items) {
+  Widget _buildPopularServicesList(
+      BuildContext context,
+      List<LayananEntity> items,
+      ) {
     final rows = <List<LayananEntity>>[];
 
     for (int i = 0; i < items.length; i += 2) {
@@ -182,7 +274,10 @@ class HomePage extends StatelessWidget {
     return Column(
       children: rows.map((row) {
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 4,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -197,20 +292,18 @@ class HomePage extends StatelessWidget {
                   },
                 ),
               ),
-
               const SizedBox(width: 24),
-
               Expanded(
                 child: row.length > 1
                     ? ServiceListItem(
-                        title: row[1].nama,
-                        onTap: () {
-                          _openServiceDetail(
-                            context,
-                            serviceTitle: row[1].nama,
-                          );
-                        },
-                      )
+                  title: row[1].nama,
+                  onTap: () {
+                    _openServiceDetail(
+                      context,
+                      serviceTitle: row[1].nama,
+                    );
+                  },
+                )
                     : const SizedBox(),
               ),
             ],
@@ -227,14 +320,17 @@ class HomePage extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.strokePrimary, width: 1),
+        border: Border.all(
+          color: AppColors.strokePrimary,
+          width: 1,
+        ),
       ),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          onTap: () {},
+          onTap: onServicesTap,
           child: const Center(
             child: Text(
               'Lihat semua',
@@ -249,19 +345,22 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
+
   void _openServiceDetail(
       BuildContext context, {
         required String serviceTitle,
       }) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ServiceDetailPage(
-          serviceTitle: serviceTitle,
-          isLoggedIn: isLoggedIn,
-          onMenuTap: onMenuTap,
-          onLoginTap: onLoginTap,
-          onServicesTap: onServicesTap,
-        ),
+        builder: (_) {
+          return ServiceDetailPage(
+            serviceTitle: serviceTitle,
+            isLoggedIn: isLoggedIn,
+            onMenuTap: onMenuTap,
+            onLoginTap: onLoginTap,
+            onServicesTap: onServicesTap,
+          );
+        },
       ),
     );
   }

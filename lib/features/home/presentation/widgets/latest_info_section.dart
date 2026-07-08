@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../informasi_layanan/presentation/bloc/informasi_layanan_bloc.dart';
 import '../../../informasi_layanan/presentation/bloc/informasi_layanan_state.dart';
 
 class LatestInfoSection extends StatelessWidget {
-  const LatestInfoSection({super.key});
+  final VoidCallback? onLihatSemuaTap;
+  final VoidCallback? onCardTap;
+
+  const LatestInfoSection({
+    super.key,
+    this.onLihatSemuaTap,
+    this.onCardTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -25,41 +33,39 @@ class LatestInfoSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-
-            // ── Loading state ───────────────────────────────────
             if (state.status == InformasiLayananStatus.loading)
               const _LoadingPlaceholder(),
-
-            // ── Error state ─────────────────────────────────────
             if (state.status == InformasiLayananStatus.error)
               _ErrorCard(message: state.errorMessage),
-
-            // ── Loaded state ────────────────────────────────────
             if (state.status == InformasiLayananStatus.loaded) ...[
               if (state.items.isEmpty)
                 const _EmptyCard()
               else
-                ...state.items.map((item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
+                ...state.items.map(
+                      (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: InkWell(
+                      onTap: onCardTap,
+                      borderRadius: BorderRadius.circular(12),
                       child: _buildInfoCard(
                         imageUrl: item.thumbnailUrl ?? item.imageUrl,
                         title: item.judul,
                         description: item.deskripsi,
                         category: _categoryLabel(
-                            item.kategoriInformasiLayananId),
+                          item.kategoriInformasiLayananId,
+                        ),
                         date: _formatDate(item.dibuatPada),
                       ),
-                    )),
+                    ),
+                  ),
+                ),
             ],
-
-            // ── Initial state (fallback) ────────────────────────
             if (state.status == InformasiLayananStatus.initial)
               const _LoadingPlaceholder(),
-
             const SizedBox(height: 16),
             Center(
               child: TextButton(
-                onPressed: () {},
+                onPressed: onLihatSemuaTap,
                 child: const Text(
                   'Lihat semua',
                   style: TextStyle(
@@ -76,10 +82,8 @@ class LatestInfoSection extends StatelessWidget {
     );
   }
 
-  /// Maps a category ID to a readable label.
-  ///
-  /// TODO: Replace with actual category name from API when
-  /// `/publik/kategori-informasi-layanan/preload` is integrated.
+  /// TODO: Ganti ini ke nama kategori dari API kalau preload kategori informasi
+  /// layanan sudah tersedia di state.
   static String _categoryLabel(int categoryId) {
     switch (categoryId) {
       case 1:
@@ -93,13 +97,11 @@ class LatestInfoSection extends StatelessWidget {
     }
   }
 
-  /// Formats a [DateTime] into a localized Indonesian date string.
   static String _formatDate(DateTime? date) {
     if (date == null) return '-';
     try {
       return DateFormat('dd MMM yyyy', 'id_ID').format(date);
     } catch (_) {
-      // Fallback if locale is not available
       return DateFormat('dd MMM yyyy').format(date);
     }
   }
@@ -120,7 +122,6 @@ class LatestInfoSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image with arrow button
           Stack(
             children: [
               ClipRRect(
@@ -130,14 +131,14 @@ class LatestInfoSection extends StatelessWidget {
                 ),
                 child: imageUrl != null && imageUrl.isNotEmpty
                     ? Image.network(
-                        imageUrl,
-                        height: 160,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return _imagePlaceholder();
-                        },
-                      )
+                  imageUrl,
+                  height: 160,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return _imagePlaceholder();
+                  },
+                )
                     : _imagePlaceholder(),
               ),
               Positioned(
@@ -166,7 +167,6 @@ class LatestInfoSection extends StatelessWidget {
               ),
             ],
           ),
-          // Content
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -214,9 +214,7 @@ class LatestInfoSection extends StatelessWidget {
                         ),
                       ),
                     ),
-
                     const Spacer(),
-
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -260,7 +258,6 @@ class LatestInfoSection extends StatelessWidget {
   }
 }
 
-/// Shimmer-like loading placeholder for the info section.
 class _LoadingPlaceholder extends StatelessWidget {
   const _LoadingPlaceholder();
 
@@ -276,12 +273,11 @@ class _LoadingPlaceholder extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image placeholder
           Container(
             height: 160,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.backgroundSecondary,
-              borderRadius: const BorderRadius.only(
+              borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
               ),
@@ -297,7 +293,6 @@ class _LoadingPlaceholder extends StatelessWidget {
               ),
             ),
           ),
-          // Content placeholder
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -338,7 +333,6 @@ class _LoadingPlaceholder extends StatelessWidget {
   }
 }
 
-/// Displayed when the API returns an error.
 class _ErrorCard extends StatelessWidget {
   final String message;
 
@@ -375,7 +369,6 @@ class _ErrorCard extends StatelessWidget {
   }
 }
 
-/// Displayed when the API returns an empty list.
 class _EmptyCard extends StatelessWidget {
   const _EmptyCard();
 

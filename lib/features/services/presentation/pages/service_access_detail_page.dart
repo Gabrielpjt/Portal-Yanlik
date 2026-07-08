@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/di/injection_container.dart';
 import '../../../../shared/widgets/app_footer.dart';
 import '../../../../shared/widgets/app_header.dart';
+import '../../domain/repositories/service_access_repository.dart';
+import '../bloc/service_access_bloc.dart';
 import '../widgets/service_access_detail_content.dart';
-import '../widgets/service_review_related_section.dart';
 
 class ServiceAccessDetailPage extends StatelessWidget {
   final String serviceTitle;
@@ -21,50 +24,41 @@ class ServiceAccessDetailPage extends StatelessWidget {
     this.onLoginTap,
   });
 
+  ServiceAccessBloc _createServiceAccessBloc() {
+    return ServiceAccessBloc(
+      repository: getIt<ServiceAccessRepository>(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          AppHeader(
-            isLoggedIn: isLoggedIn,
-            onMenuTap: onMenuTap,
-            onLoginTap: onLoginTap,
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ServiceAccessDetailContent(
-                    serviceTitle: serviceTitle,
-                    item: item,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
+    return BlocProvider<ServiceAccessBloc>(
+      create: (_) => _createServiceAccessBloc(),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Column(
+          children: [
+            AppHeader(
+              isLoggedIn: isLoggedIn,
+              onMenuTap: onMenuTap,
+              onLoginTap: onLoginTap,
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ServiceAccessDetailContent(
+                      serviceTitle: serviceTitle,
+                      item: item,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Divider(
-                          height: 40,
-                          thickness: 0.4,
-                        ),
-                        ServiceReviewRelatedSection(
-                          showRelatedService: false,
-                        ),
-                        const SizedBox(height: 32),
-                      ],
-                    ),
-                  ),
-                  const AppFooter(),
-                ],
+                    const AppFooter(),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

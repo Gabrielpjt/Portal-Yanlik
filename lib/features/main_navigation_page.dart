@@ -11,6 +11,7 @@ import 'profile/presentation/pages/profile_page.dart';
 import 'profile/presentation/widgets/profile_status_tab.dart';
 import 'search/presentation/pages/search_page.dart';
 import 'services/presentation/pages/services_page.dart';
+import 'notifications/presentation/pages/notification_page.dart';
 
 class MainNavigationPage extends StatefulWidget {
   const MainNavigationPage({
@@ -30,6 +31,8 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
   int _currentIndex = 0;
   int _profileInitialTab = 0;
   bool _isLoggedIn = false;
+  String? _servicesTargetCategory;
+  int _servicesScrollRequestId = 0;
 
   @override
   void initState() {
@@ -41,6 +44,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
       onLogin: _openLoginTab,
       onProfile: _openProfileTab,
       onProfileStatus: _openProfileStatusTab,
+      onNotifications: _openNotificationPage,
       onOpenMenu: _openDrawer,
     );
   }
@@ -87,6 +91,24 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     });
   }
 
+  void _openNotificationPage() {
+    _popToMainNavigation();
+
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NotificationPage(
+          onMenuTap: _openDrawer,
+          onLoginTap: _openLoginTab,
+          isLoggedIn: _isLoggedIn,
+        ),
+      ),
+    );
+  }
+
   void _onLoginSuccess() {
     _popToMainNavigation();
 
@@ -120,8 +142,20 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     _openMainTab(0);
   }
 
-  void _openServicesTab() {
-    _openMainTab(2);
+  void _openServicesTab({
+    String? targetCategory,
+  }) {
+    _popToMainNavigation();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _currentIndex = 2;
+      _servicesTargetCategory = targetCategory;
+      _servicesScrollRequestId++;
+    });
   }
 
   void _openLoginTab() {
@@ -146,6 +180,13 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     _openMainTab(
       3,
       profileTab: 2,
+    );
+  }
+
+  void _openProfileSettingsTab() {
+    _openMainTab(
+      3,
+      profileTab: 3,
     );
   }
 
@@ -245,8 +286,8 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
       isLoggedIn: _isLoggedIn,
       onBerandaTap: _onNavigateHome,
       onAkunSayaTap: _openProfileTab,
-      onNotifikasiTap: () {},
-      onPengaturanTap: () {},
+      onNotifikasiTap: _openNotificationPage,
+      onPengaturanTap: _openProfileSettingsTab,
       onInformasiLayananTap: _openInformasiLayananPage,
       onApiTestTap: () {
         _popToMainNavigation();
@@ -261,7 +302,11 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
       HomePage(
         onMenuTap: _openDrawer,
         onLoginTap: _openLoginTab,
-        onServicesTap: _openServicesTab,
+        onServicesTap: () => _openServicesTab(),
+        onServiceCategoryTap: (categoryName) {
+          _openServicesTab(targetCategory: categoryName);
+        },
+        onInformasiLayananTap: _openInformasiLayananPage,
         onEdokumenTap: _openProfileEdokumenTab,
         onAkunSayaTap: _openLoginTab,
         onKeluarAkunTap: _onLogout,
@@ -275,9 +320,11 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
       ServicesPage(
         onMenuTap: _openDrawer,
         onLoginTap: _openLoginTab,
-        onServicesTap: _openServicesTab,
+        onServicesTap: () => _openServicesTab(),
         onProfileTap: _openProfileTab,
         isLoggedIn: _isLoggedIn,
+        initialCategory: _servicesTargetCategory,
+        scrollRequestId: _servicesScrollRequestId,
       ),
       _isLoggedIn
           ? ProfilePage(

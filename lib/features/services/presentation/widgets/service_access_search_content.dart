@@ -1,10 +1,507 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../shared/widgets/app_pagination.dart';
+import '../../../../shared/widgets/filter_chips_row.dart';
+import '../../../../shared/widgets/filter_sort_row.dart';
 import 'service_access_common_widgets.dart';
+import '../../../../core/bloc/user_session/user_session_bloc.dart';
+import '../../domain/entities/service_access_item_entity.dart';
+import '../../domain/entities/service_access_type.dart';
+import '../bloc/service_access_bloc.dart';
+import '../bloc/service_access_event.dart';
+import '../bloc/service_access_state.dart';
+import 'service_access_result_cards.dart';
+
+class ServiceAccessSearchConfig {
+  final ServiceAccessSearchType type;
+  final String subtitle;
+  final String searchHint;
+  final String emptyTitle;
+  final String emptyDescription;
+  final String categoryField;
+  final List<String> searchFields;
+  final String noResultItemLabel;
+  final String noResultTitle;
+  final double emptyStateHeight;
+
+  const ServiceAccessSearchConfig({
+    required this.type,
+    required this.subtitle,
+    required this.searchHint,
+    required this.emptyTitle,
+    required this.emptyDescription,
+    required this.categoryField,
+    required this.searchFields,
+    required this.noResultItemLabel,
+    required this.noResultTitle,
+    required this.emptyStateHeight,
+  });
+
+  bool get isDoctor => type == ServiceAccessSearchType.doctor;
+  bool get isBpomProductCheck => type == ServiceAccessSearchType.bpomProduct;
+  bool get isHealthFacility => type == ServiceAccessSearchType.healthFacility;
+}
+
+ServiceAccessSearchConfig serviceAccessSearchConfigFromTitle(String serviceTitle) {
+  if (serviceTitle == 'Cari Dokter') {
+    return const ServiceAccessSearchConfig(
+      type: ServiceAccessSearchType.doctor,
+      subtitle: 'Temukan dokter sesuai dengan kebutuhan Anda.',
+      searchHint: 'Cari dokter atau spesialis',
+      emptyTitle: 'Temukan Dokter',
+      emptyDescription: 'Lakukan pencarian dokter dengan memasukkan nama atau spesialisasi.',
+      categoryField: 'specialization',
+      searchFields: [
+        'name',
+        'registrationNumber',
+        'specialization',
+        'hospital',
+        'city',
+      ],
+      noResultItemLabel: 'dokter',
+      noResultTitle: 'Dokter tidak ditemukan',
+      emptyStateHeight: 280,
+    );
+  }
+
+  if (serviceTitle == 'Pengecekan Produk BPOM' ||
+      serviceTitle == 'Cek Produk BPOM' ||
+      serviceTitle == 'Mengecek Produk BPOM') {
+    return const ServiceAccessSearchConfig(
+      type: ServiceAccessSearchType.bpomProduct,
+      subtitle: 'Cek apakah produk yang Anda gunakan sudah terdaftar, masih berlaku, dan aman sebelum dikonsumsi atau digunakan.',
+      searchHint: 'Cari nama produk, merek, kode NIE, atau pendaftar',
+      emptyTitle: 'Pengecekan Produk BPOM',
+      emptyDescription: 'Masukkan nama produk, merek, kode NIE, atau nama pendaftar untuk mulai melakukan pengecekan.',
+      categoryField: 'category',
+      searchFields: [
+        'productName',
+        'registrationNumber',
+        'brand',
+        'type',
+        'packaging',
+        'registrant',
+        'location',
+        'category',
+        'keywords',
+      ],
+      noResultItemLabel: 'produk',
+      noResultTitle: 'Hasil tidak ditemukan',
+      emptyStateHeight: 310,
+    );
+  }
+
+  return const ServiceAccessSearchConfig(
+    type: ServiceAccessSearchType.healthFacility,
+    subtitle: 'Temukan fasilitas kesehatan yang sesuai dengan kebutuhan Anda.',
+    searchHint: 'Cari fasilitas kesehatan',
+    emptyTitle: 'Temukan Fasilitas Kesehatan',
+    emptyDescription: 'Lakukan pencarian fasilitas kesehatan dengan memasukkan nama atau tipe faskes.',
+    categoryField: 'jenis_sarana_name',
+    searchFields: [
+      'jenis_sarana_name',
+      'jenis_sarana_kode',
+      'nama',
+      'kode_sarana',
+      'kode_satu_sehat',
+      'alamat',
+      'telp',
+      'email',
+      'website',
+      'type',
+      'name',
+      'address',
+    ],
+    noResultItemLabel: 'fasilitas',
+    noResultTitle: 'Fasilitas tidak ditemukan',
+    emptyStateHeight: 250,
+  );
+}
+
+class ServiceAccessInitialIcon extends StatelessWidget {
+  final ServiceAccessSearchType type;
+
+  const ServiceAccessInitialIcon({
+    super.key,
+    required this.type,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    switch (type) {
+      case ServiceAccessSearchType.bpomProduct:
+        return const ServiceAccessDocumentSearchIcon();
+      case ServiceAccessSearchType.doctor:
+        return const FaIcon(
+          FontAwesomeIcons.stethoscope,
+          size: 22,
+          color: Color(0xFF062F5E),
+        );
+      case ServiceAccessSearchType.healthFacility:
+        return const Icon(
+          Icons.medical_services_outlined,
+          size: 23,
+          color: Color(0xFF062F5E),
+        );
+    }
+  }
+}
+
+class ServiceAccessDocumentSearchIcon extends StatelessWidget {
+  const ServiceAccessDocumentSearchIcon({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 34,
+      height: 34,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          const Positioned(
+            left: 2,
+            top: 0,
+            child: Icon(
+              Icons.description_outlined,
+              size: 30,
+              color: Color(0xFF062F5E),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 2,
+            child: Container(
+              width: 17,
+              height: 17,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8F8F8),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.search,
+                size: 14,
+                color: Color(0xFF062F5E),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Data sementara untuk UI sebelum integrasi API.
+// Nanti saat API sudah masuk, file ini bisa diganti repository/API response tanpa mengubah UI page.
+
+const List<Map<String, dynamic>> serviceAccessMockDoctors = [
+
+  {
+    'name': 'Dr. Ahmad Wijaya, Sp.JP',
+    'registrationNumber': '000/STR/098IV-2006/098765',
+    'specialization': 'Spesialis Jantung',
+    'schedule': 'Sen 07 Mei, 08:00 - 14:00 WIB',
+    'detailSchedule': 'Senin - Jumat, 14:00 - 17:00',
+    'status': 'Buka',
+    'hospital': 'RS Graha Bunda',
+    'city': 'Jakarta Pusat',
+    'distance': '1,25 KM',
+    'phone': '+62-21-12345678',
+    'description':
+    'Dr. Ahmad Wijaya, Sp.JP adalah seorang spesialis jantung '
+        'berpengalaman dengan 15 tahun praktik di bidangnya. '
+        'Lulus dari Universitas Indonesia, beliau telah menangani '
+        'lebih dari 2.500 pasien dengan dedikasi tinggi dan '
+        'profesionalisme.',
+    'education': [
+      {
+        'degree': 'Spesialisasi Spesialis Jantung',
+        'institution': 'Universitas Indonesia (2015)',
+      },
+      {
+        'degree': 'Sarjana Kedokteran',
+        'institution': 'Universitas Indonesia (2005)',
+      },
+    ],
+  },
+  {
+    'name': 'Dr. Siti Nurhaliza, Sp.A',
+    'registrationNumber': '000/STR/098IV-2006/098765',
+    'specialization': 'Spesialis Anak',
+    'schedule': 'Sen 07 Mei, 08:00 - 14:00 WIB',
+    'detailSchedule': 'Senin - Sabtu, 08:00 - 14:00',
+    'status': 'Buka',
+    'hospital': 'Klinik Pratama Medika',
+    'city': 'Jakarta Pusat',
+    'distance': '2 KM',
+    'phone': '+62-21-87654321',
+    'description':
+    'Dr. Siti Nurhaliza, Sp.A memberikan pelayanan kesehatan anak '
+        'mulai dari pemeriksaan rutin, pemantauan tumbuh kembang, '
+        'hingga penanganan berbagai keluhan kesehatan anak.',
+    'education': [
+      {
+        'degree': 'Spesialisasi Ilmu Kesehatan Anak',
+        'institution': 'Universitas Gadjah Mada (2017)',
+      },
+      {
+        'degree': 'Sarjana Kedokteran',
+        'institution': 'Universitas Gadjah Mada (2008)',
+      },
+    ],
+  },
+  {
+    'name': 'Dr. Budi Santoso, Sp.OT',
+    'registrationNumber': '000/STR/098IV-2006/098765',
+    'specialization': 'Spesialis Ortopedi',
+    'schedule': 'Sen 07 Mei, 08:00 - 14:00 WIB',
+    'detailSchedule': 'Senin - Jumat, 08:00 - 14:00',
+    'status': 'Buka',
+    'hospital': 'RS Cipto Mangunkusumo',
+    'city': 'Jakarta Pusat',
+    'distance': '3,65 KM',
+    'phone': '+62-21-31900001',
+    'description':
+    'Dr. Budi Santoso, Sp.OT merupakan dokter spesialis ortopedi '
+        'yang menangani gangguan tulang, sendi, otot, serta '
+        'pemulihan cedera sistem gerak.',
+    'education': [
+      {
+        'degree': 'Spesialisasi Ortopedi dan Traumatologi',
+        'institution': 'Universitas Airlangga (2016)',
+      },
+      {
+        'degree': 'Sarjana Kedokteran',
+        'institution': 'Universitas Airlangga (2007)',
+      },
+    ],
+  },
+  {
+    'name': 'Dr. Maya Putri, Sp.PD',
+    'registrationNumber': '001/STR/098IV-2008/118765',
+    'specialization': 'Spesialis Penyakit Dalam',
+    'schedule': 'Sel 08 Mei, 09:00 - 15:00 WIB',
+    'detailSchedule': 'Selasa - Sabtu, 09:00 - 15:00',
+    'status': 'Buka',
+    'hospital': 'RS Metropolitan Medical Centre',
+    'city': 'Jakarta Selatan',
+    'distance': '4 KM',
+    'phone': '+62-21-5203435',
+    'description':
+    'Dr. Maya Putri, Sp.PD menangani pemeriksaan dan perawatan '
+        'berbagai penyakit pada pasien dewasa dengan pendekatan '
+        'yang menyeluruh dan berorientasi pada kebutuhan pasien.',
+    'education': [
+      {
+        'degree': 'Spesialisasi Penyakit Dalam',
+        'institution': 'Universitas Indonesia (2018)',
+      },
+      {
+        'degree': 'Sarjana Kedokteran',
+        'institution': 'Universitas Padjadjaran (2009)',
+      },
+    ],
+  },
+  {
+    'name': 'Dr. Rina Kurnia, Sp.M',
+    'registrationNumber': '002/STR/098IV-2009/128765',
+    'specialization': 'Spesialis Mata',
+    'schedule': 'Rab 09 Mei, 10:00 - 16:00 WIB',
+    'detailSchedule': 'Senin - Jumat, 10:00 - 16:00',
+    'status': 'Buka',
+    'hospital': 'RS Mata Jakarta Eye Center',
+    'city': 'Jakarta Pusat',
+    'distance': '4,8 KM',
+    'phone': '+62-21-29221000',
+    'description':
+    'Dr. Rina Kurnia, Sp.M memberikan layanan pemeriksaan mata, '
+        'konsultasi gangguan penglihatan, serta penanganan penyakit '
+        'mata pada pasien anak dan dewasa.',
+    'education': [
+      {
+        'degree': 'Spesialisasi Ilmu Kesehatan Mata',
+        'institution': 'Universitas Indonesia (2019)',
+      },
+      {
+        'degree': 'Sarjana Kedokteran',
+        'institution': 'Universitas Trisakti (2010)',
+      },
+    ],
+  },
+  {
+    'name': 'Dr. Fajar Ramadhan, Sp.KK',
+    'registrationNumber': '003/STR/098IV-2010/138765',
+    'specialization': 'Spesialis Kulit',
+    'schedule': 'Kam 10 Mei, 08:00 - 13:00 WIB',
+    'detailSchedule': 'Senin - Kamis, 08:00 - 13:00',
+    'status': 'Buka',
+    'hospital': 'RS Pondok Indah',
+    'city': 'Jakarta Selatan',
+    'distance': '5,1 KM',
+    'phone': '+62-21-7657525',
+    'description':
+    'Dr. Fajar Ramadhan, Sp.KK menangani berbagai keluhan kulit '
+        'dan kelamin, termasuk alergi, infeksi, perawatan kulit, '
+        'dan edukasi pencegahan kekambuhan.',
+    'education': [
+      {
+        'degree': 'Spesialisasi Kulit dan Kelamin',
+        'institution': 'Universitas Indonesia (2020)',
+      },
+      {
+        'degree': 'Sarjana Kedokteran',
+        'institution': 'Universitas Diponegoro (2011)',
+      },
+    ],
+  },
+  {
+    'name': 'Dr. Nadia Permata, Sp.A',
+    'registrationNumber': '004/STR/098IV-2011/148765',
+    'specialization': 'Spesialis Anak',
+    'schedule': 'Jum 11 Mei, 09:00 - 14:00 WIB',
+    'detailSchedule': 'Senin - Jumat, 09:00 - 14:00',
+    'status': 'Buka',
+    'hospital': 'RSIA Bunda Jakarta',
+    'city': 'Jakarta Pusat',
+    'distance': '5,7 KM',
+    'phone': '+62-21-31922005',
+    'description':
+    'Dr. Nadia Permata, Sp.A berfokus pada kesehatan anak, '
+        'pemantauan tumbuh kembang, imunisasi, dan konsultasi '
+        'kesehatan keluarga.',
+    'education': [
+      {
+        'degree': 'Spesialisasi Ilmu Kesehatan Anak',
+        'institution': 'Universitas Indonesia (2020)',
+      },
+      {
+        'degree': 'Sarjana Kedokteran',
+        'institution': 'Universitas Indonesia (2011)',
+      },
+    ],
+  },
+  {
+    'name': 'Dr. Reza Mahendra, Sp.JP',
+    'registrationNumber': '005/STR/098IV-2012/158765',
+    'specialization': 'Spesialis Jantung',
+    'schedule': 'Sab 12 Mei, 08:00 - 12:00 WIB',
+    'detailSchedule': 'Senin - Sabtu, 08:00 - 12:00',
+    'status': 'Buka',
+    'hospital': 'RS Jantung Harapan Kita',
+    'city': 'Jakarta Barat',
+    'distance': '6,2 KM',
+    'phone': '+62-21-5684085',
+    'description':
+    'Dr. Reza Mahendra, Sp.JP memberikan layanan pemeriksaan '
+        'jantung, evaluasi faktor risiko, dan pendampingan '
+        'perawatan penyakit kardiovaskular.',
+    'education': [
+      {
+        'degree': 'Spesialisasi Jantung dan Pembuluh Darah',
+        'institution': 'Universitas Indonesia (2021)',
+      },
+      {
+        'degree': 'Sarjana Kedokteran',
+        'institution': 'Universitas Brawijaya (2012)',
+      },
+    ],
+  },
+  {
+    'name': 'Dr. Intan Lestari, Sp.PD',
+    'registrationNumber': '006/STR/098IV-2013/168765',
+    'specialization': 'Spesialis Penyakit Dalam',
+    'schedule': 'Sen 14 Mei, 13:00 - 18:00 WIB',
+    'detailSchedule': 'Senin - Jumat, 13:00 - 18:00',
+    'status': 'Buka',
+    'hospital': 'RS Siloam Semanggi',
+    'city': 'Jakarta Selatan',
+    'distance': '6,8 KM',
+    'phone': '+62-21-29962888',
+    'description':
+    'Dr. Intan Lestari, Sp.PD menangani pemeriksaan penyakit '
+        'dalam, pengelolaan penyakit kronis, serta edukasi '
+        'kesehatan bagi pasien dewasa.',
+    'education': [
+      {
+        'degree': 'Spesialisasi Penyakit Dalam',
+        'institution': 'Universitas Padjadjaran (2021)',
+      },
+      {
+        'degree': 'Sarjana Kedokteran',
+        'institution': 'Universitas Padjadjaran (2012)',
+      },
+    ],
+  },
+  {
+    'name': 'Dr. Arif Hidayat, Sp.OT',
+    'registrationNumber': '007/STR/098IV-2014/178765',
+    'specialization': 'Spesialis Ortopedi',
+    'schedule': 'Sel 15 Mei, 10:00 - 16:00 WIB',
+    'detailSchedule': 'Selasa - Sabtu, 10:00 - 16:00',
+    'status': 'Buka',
+    'hospital': 'RS Fatmawati',
+    'city': 'Jakarta Selatan',
+    'distance': '7,4 KM',
+    'phone': '+62-21-7501524',
+    'description':
+    'Dr. Arif Hidayat, Sp.OT memberikan pelayanan ortopedi untuk '
+        'cedera olahraga, gangguan sendi, serta masalah tulang '
+        'dan otot pada pasien dewasa.',
+    'education': [
+      {
+        'degree': 'Spesialisasi Ortopedi dan Traumatologi',
+        'institution': 'Universitas Indonesia (2022)',
+      },
+      {
+        'degree': 'Sarjana Kedokteran',
+        'institution': 'Universitas Hasanuddin (2013)',
+      },
+    ],
+  },
+];
+
+const List<Map<String, dynamic>> serviceAccessMockBpomProducts = [
+  {
+    'productName': 'Nama Produk',
+    'registrationNumber': 'NA-123456789012',
+    'issuedDate': '08 Mei 2025',
+    'validUntil': '08 Mei 2031',
+    'brand': 'Merek',
+    'type': 'Tipe',
+    'packaging': 'Kemasan',
+    'registrant': 'Rohto Laboratories Indonesia, PT',
+    'location': 'Kota Adm, Jakarta Barat, DKI Jakarta, Indonesia',
+    'category': 'Kosmetik',
+    'keywords': 'selsun kosmetik shampoo produk bpom na-123456789012 rohto',
+  },
+  {
+    'productName': 'Nama Produk',
+    'registrationNumber': 'NA-123456789012',
+    'issuedDate': '08 Mei 2025',
+    'validUntil': '08 Mei 2031',
+    'brand': 'Merek',
+    'type': 'Tipe',
+    'packaging': 'Kemasan',
+    'registrant': 'Rohto Laboratories Indonesia, PT',
+    'location': 'Kota Adm, Jakarta Barat, DKI Jakarta, Indonesia',
+    'category': 'Kosmetik',
+    'keywords': 'selsun kosmetik shampoo produk bpom na-123456789012 rohto',
+  },
+];
+
+List<Map<String, dynamic>> getServiceAccessMockItems(ServiceAccessSearchType type) {
+  switch (type) {
+    case ServiceAccessSearchType.bpomProduct:
+      return serviceAccessMockBpomProducts;
+    case ServiceAccessSearchType.doctor:
+      return serviceAccessMockDoctors;
+    case ServiceAccessSearchType.healthFacility:
+      return const <Map<String, dynamic>>[];
+  }
+}
 
 class ServiceAccessSearchContent extends StatefulWidget {
   final String serviceTitle;
@@ -22,9 +519,9 @@ class ServiceAccessSearchContent extends StatefulWidget {
   }
 }
 
-class _ServiceAccessSearchContentState
-    extends State<ServiceAccessSearchContent> {
-  static const int _pageSize = 3;
+class _ServiceAccessSearchContentState extends State<ServiceAccessSearchContent> {
+  static const int _defaultPageSize = 3;
+  static const int _fasyankesPageSize = 5;
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -33,403 +530,20 @@ class _ServiceAccessSearchContentState
   String _selectedCategory = 'Semua';
   int _currentPage = 1;
 
-  bool get _isDoctor => widget.serviceTitle == 'Cari Dokter';
+  ServiceAccessSearchConfig get _config {
+    return serviceAccessSearchConfigFromTitle(widget.serviceTitle);
+  }
 
-  final List<Map<String, dynamic>> _doctors = [
-
-    {
-      'name': 'Dr. Ahmad Wijaya, Sp.JP',
-      'registrationNumber': '000/STR/098IV-2006/098765',
-      'specialization': 'Spesialis Jantung',
-      'schedule': 'Sen 07 Mei, 08:00 - 14:00 WIB',
-      'detailSchedule': 'Senin - Jumat, 14:00 - 17:00',
-      'status': 'Buka',
-      'hospital': 'RS Graha Bunda',
-      'city': 'Jakarta Pusat',
-      'distance': '1,25 KM',
-      'phone': '+62-21-12345678',
-      'description':
-      'Dr. Ahmad Wijaya, Sp.JP adalah seorang spesialis jantung '
-          'berpengalaman dengan 15 tahun praktik di bidangnya. '
-          'Lulus dari Universitas Indonesia, beliau telah menangani '
-          'lebih dari 2.500 pasien dengan dedikasi tinggi dan '
-          'profesionalisme.',
-      'education': [
-        {
-          'degree': 'Spesialisasi Spesialis Jantung',
-          'institution': 'Universitas Indonesia (2015)',
-        },
-        {
-          'degree': 'Sarjana Kedokteran',
-          'institution': 'Universitas Indonesia (2005)',
-        },
-      ],
-    },
-    {
-      'name': 'Dr. Siti Nurhaliza, Sp.A',
-      'registrationNumber': '000/STR/098IV-2006/098765',
-      'specialization': 'Spesialis Anak',
-      'schedule': 'Sen 07 Mei, 08:00 - 14:00 WIB',
-      'detailSchedule': 'Senin - Sabtu, 08:00 - 14:00',
-      'status': 'Buka',
-      'hospital': 'Klinik Pratama Medika',
-      'city': 'Jakarta Pusat',
-      'distance': '2 KM',
-      'phone': '+62-21-87654321',
-      'description':
-      'Dr. Siti Nurhaliza, Sp.A memberikan pelayanan kesehatan anak '
-          'mulai dari pemeriksaan rutin, pemantauan tumbuh kembang, '
-          'hingga penanganan berbagai keluhan kesehatan anak.',
-      'education': [
-        {
-          'degree': 'Spesialisasi Ilmu Kesehatan Anak',
-          'institution': 'Universitas Gadjah Mada (2017)',
-        },
-        {
-          'degree': 'Sarjana Kedokteran',
-          'institution': 'Universitas Gadjah Mada (2008)',
-        },
-      ],
-    },
-    {
-      'name': 'Dr. Budi Santoso, Sp.OT',
-      'registrationNumber': '000/STR/098IV-2006/098765',
-      'specialization': 'Spesialis Ortopedi',
-      'schedule': 'Sen 07 Mei, 08:00 - 14:00 WIB',
-      'detailSchedule': 'Senin - Jumat, 08:00 - 14:00',
-      'status': 'Buka',
-      'hospital': 'RS Cipto Mangunkusumo',
-      'city': 'Jakarta Pusat',
-      'distance': '3,65 KM',
-      'phone': '+62-21-31900001',
-      'description':
-      'Dr. Budi Santoso, Sp.OT merupakan dokter spesialis ortopedi '
-          'yang menangani gangguan tulang, sendi, otot, serta '
-          'pemulihan cedera sistem gerak.',
-      'education': [
-        {
-          'degree': 'Spesialisasi Ortopedi dan Traumatologi',
-          'institution': 'Universitas Airlangga (2016)',
-        },
-        {
-          'degree': 'Sarjana Kedokteran',
-          'institution': 'Universitas Airlangga (2007)',
-        },
-      ],
-    },
-    {
-      'name': 'Dr. Maya Putri, Sp.PD',
-      'registrationNumber': '001/STR/098IV-2008/118765',
-      'specialization': 'Spesialis Penyakit Dalam',
-      'schedule': 'Sel 08 Mei, 09:00 - 15:00 WIB',
-      'detailSchedule': 'Selasa - Sabtu, 09:00 - 15:00',
-      'status': 'Buka',
-      'hospital': 'RS Metropolitan Medical Centre',
-      'city': 'Jakarta Selatan',
-      'distance': '4 KM',
-      'phone': '+62-21-5203435',
-      'description':
-      'Dr. Maya Putri, Sp.PD menangani pemeriksaan dan perawatan '
-          'berbagai penyakit pada pasien dewasa dengan pendekatan '
-          'yang menyeluruh dan berorientasi pada kebutuhan pasien.',
-      'education': [
-        {
-          'degree': 'Spesialisasi Penyakit Dalam',
-          'institution': 'Universitas Indonesia (2018)',
-        },
-        {
-          'degree': 'Sarjana Kedokteran',
-          'institution': 'Universitas Padjadjaran (2009)',
-        },
-      ],
-    },
-    {
-      'name': 'Dr. Rina Kurnia, Sp.M',
-      'registrationNumber': '002/STR/098IV-2009/128765',
-      'specialization': 'Spesialis Mata',
-      'schedule': 'Rab 09 Mei, 10:00 - 16:00 WIB',
-      'detailSchedule': 'Senin - Jumat, 10:00 - 16:00',
-      'status': 'Buka',
-      'hospital': 'RS Mata Jakarta Eye Center',
-      'city': 'Jakarta Pusat',
-      'distance': '4,8 KM',
-      'phone': '+62-21-29221000',
-      'description':
-      'Dr. Rina Kurnia, Sp.M memberikan layanan pemeriksaan mata, '
-          'konsultasi gangguan penglihatan, serta penanganan penyakit '
-          'mata pada pasien anak dan dewasa.',
-      'education': [
-        {
-          'degree': 'Spesialisasi Ilmu Kesehatan Mata',
-          'institution': 'Universitas Indonesia (2019)',
-        },
-        {
-          'degree': 'Sarjana Kedokteran',
-          'institution': 'Universitas Trisakti (2010)',
-        },
-      ],
-    },
-    {
-      'name': 'Dr. Fajar Ramadhan, Sp.KK',
-      'registrationNumber': '003/STR/098IV-2010/138765',
-      'specialization': 'Spesialis Kulit',
-      'schedule': 'Kam 10 Mei, 08:00 - 13:00 WIB',
-      'detailSchedule': 'Senin - Kamis, 08:00 - 13:00',
-      'status': 'Buka',
-      'hospital': 'RS Pondok Indah',
-      'city': 'Jakarta Selatan',
-      'distance': '5,1 KM',
-      'phone': '+62-21-7657525',
-      'description':
-      'Dr. Fajar Ramadhan, Sp.KK menangani berbagai keluhan kulit '
-          'dan kelamin, termasuk alergi, infeksi, perawatan kulit, '
-          'dan edukasi pencegahan kekambuhan.',
-      'education': [
-        {
-          'degree': 'Spesialisasi Kulit dan Kelamin',
-          'institution': 'Universitas Indonesia (2020)',
-        },
-        {
-          'degree': 'Sarjana Kedokteran',
-          'institution': 'Universitas Diponegoro (2011)',
-        },
-      ],
-    },
-    {
-      'name': 'Dr. Nadia Permata, Sp.A',
-      'registrationNumber': '004/STR/098IV-2011/148765',
-      'specialization': 'Spesialis Anak',
-      'schedule': 'Jum 11 Mei, 09:00 - 14:00 WIB',
-      'detailSchedule': 'Senin - Jumat, 09:00 - 14:00',
-      'status': 'Buka',
-      'hospital': 'RSIA Bunda Jakarta',
-      'city': 'Jakarta Pusat',
-      'distance': '5,7 KM',
-      'phone': '+62-21-31922005',
-      'description':
-      'Dr. Nadia Permata, Sp.A berfokus pada kesehatan anak, '
-          'pemantauan tumbuh kembang, imunisasi, dan konsultasi '
-          'kesehatan keluarga.',
-      'education': [
-        {
-          'degree': 'Spesialisasi Ilmu Kesehatan Anak',
-          'institution': 'Universitas Indonesia (2020)',
-        },
-        {
-          'degree': 'Sarjana Kedokteran',
-          'institution': 'Universitas Indonesia (2011)',
-        },
-      ],
-    },
-    {
-      'name': 'Dr. Reza Mahendra, Sp.JP',
-      'registrationNumber': '005/STR/098IV-2012/158765',
-      'specialization': 'Spesialis Jantung',
-      'schedule': 'Sab 12 Mei, 08:00 - 12:00 WIB',
-      'detailSchedule': 'Senin - Sabtu, 08:00 - 12:00',
-      'status': 'Buka',
-      'hospital': 'RS Jantung Harapan Kita',
-      'city': 'Jakarta Barat',
-      'distance': '6,2 KM',
-      'phone': '+62-21-5684085',
-      'description':
-      'Dr. Reza Mahendra, Sp.JP memberikan layanan pemeriksaan '
-          'jantung, evaluasi faktor risiko, dan pendampingan '
-          'perawatan penyakit kardiovaskular.',
-      'education': [
-        {
-          'degree': 'Spesialisasi Jantung dan Pembuluh Darah',
-          'institution': 'Universitas Indonesia (2021)',
-        },
-        {
-          'degree': 'Sarjana Kedokteran',
-          'institution': 'Universitas Brawijaya (2012)',
-        },
-      ],
-    },
-    {
-      'name': 'Dr. Intan Lestari, Sp.PD',
-      'registrationNumber': '006/STR/098IV-2013/168765',
-      'specialization': 'Spesialis Penyakit Dalam',
-      'schedule': 'Sen 14 Mei, 13:00 - 18:00 WIB',
-      'detailSchedule': 'Senin - Jumat, 13:00 - 18:00',
-      'status': 'Buka',
-      'hospital': 'RS Siloam Semanggi',
-      'city': 'Jakarta Selatan',
-      'distance': '6,8 KM',
-      'phone': '+62-21-29962888',
-      'description':
-      'Dr. Intan Lestari, Sp.PD menangani pemeriksaan penyakit '
-          'dalam, pengelolaan penyakit kronis, serta edukasi '
-          'kesehatan bagi pasien dewasa.',
-      'education': [
-        {
-          'degree': 'Spesialisasi Penyakit Dalam',
-          'institution': 'Universitas Padjadjaran (2021)',
-        },
-        {
-          'degree': 'Sarjana Kedokteran',
-          'institution': 'Universitas Padjadjaran (2012)',
-        },
-      ],
-    },
-    {
-      'name': 'Dr. Arif Hidayat, Sp.OT',
-      'registrationNumber': '007/STR/098IV-2014/178765',
-      'specialization': 'Spesialis Ortopedi',
-      'schedule': 'Sel 15 Mei, 10:00 - 16:00 WIB',
-      'detailSchedule': 'Selasa - Sabtu, 10:00 - 16:00',
-      'status': 'Buka',
-      'hospital': 'RS Fatmawati',
-      'city': 'Jakarta Selatan',
-      'distance': '7,4 KM',
-      'phone': '+62-21-7501524',
-      'description':
-      'Dr. Arif Hidayat, Sp.OT memberikan pelayanan ortopedi untuk '
-          'cedera olahraga, gangguan sendi, serta masalah tulang '
-          'dan otot pada pasien dewasa.',
-      'education': [
-        {
-          'degree': 'Spesialisasi Ortopedi dan Traumatologi',
-          'institution': 'Universitas Indonesia (2022)',
-        },
-        {
-          'degree': 'Sarjana Kedokteran',
-          'institution': 'Universitas Hasanuddin (2013)',
-        },
-      ],
-    },
-  ];
-
-  final List<Map<String, dynamic>> _facilities = [
-
-    {
-      'type': 'Rumah Sakit',
-      'name': 'RS Graha Bunda',
-      'address': 'Jl. Sudirman No. 123, Jakarta Pusat',
-      'distance': '1,25 KM',
-      'phone': '+62-21-12345678',
-      'bpjs': true,
-      'description':
-      'RS Graha Bunda adalah rumah sakit umum modern yang telah '
-          'melayani masyarakat Jakarta sejak tahun 2005. Dilengkapi '
-          'dengan peralatan medis canggih dan tenaga medis profesional, '
-          'kami berkomitmen memberikan pelayanan kesehatan terbaik '
-          'dengan fasilitas rawat inap kelas VIP hingga kelas 3, unit '
-          'gawat darurat 24 jam, serta berbagai poliklinik spesialis.',
-      'operationalHours': 'Senin - Minggu: 24 Jam',
-      'services': [
-        'Umum',
-        'Kardiologi',
-        'Ortopedi',
-        'Pediatri',
-      ],
-    },
-    {
-      'type': 'Klinik',
-      'name': 'Klinik Pratama Medika',
-      'address': 'Jl. Gatot Subroto No. 45, Jakarta Selatan',
-      'distance': '2 KM',
-      'phone': '+62-21-12345678',
-      'bpjs': false,
-      'description':
-      'Klinik Pratama Medika menyediakan layanan kesehatan dasar '
-          'bagi masyarakat dengan dukungan dokter dan tenaga kesehatan '
-          'yang profesional. Klinik melayani pemeriksaan umum, kesehatan '
-          'gigi, pemeriksaan laboratorium, dan konsultasi kesehatan.',
-      'operationalHours': 'Senin - Sabtu: 08.00 - 21.00',
-      'services': [
-        'Umum',
-        'Gigi',
-        'Laboratorium',
-      ],
-    },
-    {
-      'type': 'Rumah Sakit',
-      'name': 'RS Cipto Mangunkusumo',
-      'address': 'Jl. Diponegoro No. 71, Jakarta Pusat',
-      'distance': '3,65 KM',
-      'phone': '+62-21-31900001',
-      'bpjs': true,
-      'description':
-      'RS Cipto Mangunkusumo menyediakan berbagai pelayanan '
-          'kesehatan umum dan spesialis dengan dukungan fasilitas '
-          'medis, tenaga kesehatan profesional, dan pelayanan '
-          'kegawatdaruratan selama 24 jam.',
-      'operationalHours': 'Senin - Minggu: 24 Jam',
-      'services': [
-        'Umum',
-        'Penyakit Dalam',
-        'Bedah',
-        'Kardiologi',
-      ],
-    },
-  ];
+  int get _pageSize {
+    return _config.isHealthFacility ? _fasyankesPageSize : _defaultPageSize;
+  }
 
   List<Map<String, dynamic>> get _sourceItems {
-    return _isDoctor ? _doctors : _facilities;
-  }
-
-  String get _subtitle {
-    return _isDoctor
-        ? 'Temukan dokter sesuai dengan kebutuhan Anda.'
-        : 'Temukan fasilitas kesehatan yang sesuai dengan kebutuhan Anda.';
-  }
-
-  String get _searchHint {
-    return _isDoctor
-        ? 'Masukkan nama dokter atau spesialisasi'
-        : 'Masukkan nama fasilitas kesehatan';
-  }
-
-  String get _emptyTitle {
-    return _isDoctor
-        ? 'Pencarian Dokter'
-        : 'Pencarian Fasilitas Kesehatan';
-  }
-
-  String get _emptyDescription {
-    return _isDoctor
-        ? 'Lakukan pencarian dokter dengan\nmemasukkan nama atau spesialisasi.'
-        : 'Lakukan pencarian fasilitas kesehatan dengan\nmemasukkan nama atau tipe faskes.';
-  }
-
-  Widget get _emptyIcon {
-    if (_isDoctor) {
-      return const FaIcon(
-        FontAwesomeIcons.stethoscope,
-        size: 22,
-        color: Color(0xFF062F5E),
-      );
+    if (_config.isHealthFacility) {
+      return const <Map<String, dynamic>>[];
     }
 
-    return const Icon(
-      Icons.medical_services_outlined,
-      size: 23,
-      color: Color(0xFF062F5E),
-    );
-  }
-
-  String get _categoryField {
-    return _isDoctor ? 'specialization' : 'type';
-  }
-
-  List<String> get _searchFields {
-    if (_isDoctor) {
-      return const [
-        'name',
-        'registrationNumber',
-        'specialization',
-        'hospital',
-        'city',
-      ];
-    }
-
-    return const [
-      'type',
-      'name',
-      'address',
-    ];
+    return getServiceAccessMockItems(_config.type);
   }
 
   List<Map<String, dynamic>> get _searchMatchedItems {
@@ -440,7 +554,7 @@ class _ServiceAccessSearchContentState
     }
 
     return _sourceItems.where((item) {
-      return _searchFields.any((field) {
+      return _config.searchFields.any((field) {
         final value = item[field]?.toString().toLowerCase() ?? '';
         return value.contains(keyword);
       });
@@ -448,20 +562,26 @@ class _ServiceAccessSearchContentState
   }
 
   List<Map<String, dynamic>> get _filteredItems {
+    return _filterItemsByCategory(_searchMatchedItems);
+  }
+
+  List<Map<String, dynamic>> _filterItemsByCategory(
+      List<Map<String, dynamic>> source,
+      ) {
     if (_selectedCategory == 'Semua') {
-      return _searchMatchedItems;
+      return source;
     }
 
-    return _searchMatchedItems.where((item) {
-      return item[_categoryField] == _selectedCategory;
+    return source.where((item) {
+      return item[_config.categoryField]?.toString() == _selectedCategory;
     }).toList();
   }
 
-  List<String> get _categories {
+  List<String> _categoriesFromItems(List<Map<String, dynamic>> items) {
     final categories = <String>['Semua'];
 
-    for (final item in _searchMatchedItems) {
-      final category = item[_categoryField]?.toString() ?? '';
+    for (final item in items) {
+      final category = item[_config.categoryField]?.toString() ?? '';
 
       if (category.isNotEmpty && !categories.contains(category)) {
         categories.add(category);
@@ -471,30 +591,61 @@ class _ServiceAccessSearchContentState
     return categories;
   }
 
-  int _getCategoryCount(String category) {
+  int _getCategoryCount(
+      String category,
+      List<Map<String, dynamic>> items,
+      ) {
     if (category == 'Semua') {
-      return _searchMatchedItems.length;
+      return items.length;
     }
 
-    return _searchMatchedItems.where((item) {
-      return item[_categoryField] == category;
+    return items.where((item) {
+      return item[_config.categoryField]?.toString() == category;
     }).length;
+  }
+
+  List<Map<String, dynamic>> _facilityItemsFromState(ServiceAccessState state) {
+    return state.items.map((ServiceAccessItemEntity item) => item.toMap()).toList();
+  }
+
+  String _sessionToken() {
+    return context.read<UserSessionBloc>().state.token;
   }
 
   void _search() {
     final keyword = _searchController.text.trim();
 
-    if (keyword.isEmpty) {
+    if (keyword.isEmpty && !_config.isHealthFacility) {
       return;
     }
 
     FocusManager.instance.primaryFocus?.unfocus();
 
+    if (_config.isHealthFacility) {
+      setState(() {
+        _hasSearched = true;
+        _searchKeyword = keyword;
+        _selectedCategory = 'Semua';
+        _currentPage = 1;
+      });
+
+      context.read<ServiceAccessBloc>().add(
+        ServiceAccessSearchRequested(
+          type: _config.type,
+          token: _sessionToken(),
+          page: 1,
+          limit: _pageSize,
+          query: keyword,
+        ),
+      );
+      return;
+    }
+
     setState(() {
+      _hasSearched = true;
       _searchKeyword = keyword;
       _selectedCategory = 'Semua';
       _currentPage = 1;
-      _hasSearched = true;
     });
   }
 
@@ -502,11 +653,15 @@ class _ServiceAccessSearchContentState
     _searchController.clear();
     FocusManager.instance.primaryFocus?.unfocus();
 
+    if (_config.isHealthFacility) {
+      context.read<ServiceAccessBloc>().add(const ServiceAccessSearchCleared());
+    }
+
     setState(() {
+      _hasSearched = false;
       _searchKeyword = '';
       _selectedCategory = 'Semua';
       _currentPage = 1;
-      _hasSearched = false;
     });
   }
 
@@ -526,9 +681,39 @@ class _ServiceAccessSearchContentState
       return;
     }
 
+    if (_config.isHealthFacility) {
+      setState(() {
+        _selectedCategory = 'Semua';
+        _currentPage = page;
+      });
+
+      context.read<ServiceAccessBloc>().add(
+        ServiceAccessSearchRequested(
+          type: _config.type,
+          token: _sessionToken(),
+          page: page,
+          limit: _pageSize,
+          query: _searchKeyword,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _currentPage = page;
     });
+  }
+
+  void _retryFacilitySearch() {
+    context.read<ServiceAccessBloc>().add(
+      ServiceAccessSearchRequested(
+        type: _config.type,
+        token: _sessionToken(),
+        page: _currentPage,
+        limit: _pageSize,
+        query: _searchKeyword,
+      ),
+    );
   }
 
   void _copyRegistrationNumber(String registrationNumber) {
@@ -538,7 +723,7 @@ class _ServiceAccessSearchContentState
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Nomor STR berhasil disalin.'),
+        content: Text('Nomor STR berhasil disalin'),
       ),
     );
   }
@@ -551,6 +736,8 @@ class _ServiceAccessSearchContentState
 
   @override
   Widget build(BuildContext context) {
+    final config = _config;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
       child: Column(
@@ -571,7 +758,7 @@ class _ServiceAccessSearchContentState
           ),
           const SizedBox(height: 6),
           Text(
-            _subtitle,
+            config.subtitle,
             style: const TextStyle(
               fontSize: 15,
               height: 1.5,
@@ -581,37 +768,84 @@ class _ServiceAccessSearchContentState
           const SizedBox(height: 24),
           ServiceAccessSearchBox(
             controller: _searchController,
-            hintText: _searchHint,
+            hintText: config.searchHint,
             onSearch: _search,
             onClear: _clearSearch,
           ),
           const SizedBox(height: 28),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            child: _hasSearched
-                ? _buildSearchResult()
-                : ServiceAccessSearchEmptyState(
-              key: ValueKey('directory-empty-${widget.serviceTitle}'),
-              title: _emptyTitle,
-              description: _emptyDescription,
-              icon: _emptyIcon,
-              height: _isDoctor ? 280 : 250,
+          if (config.isHealthFacility)
+            BlocBuilder<ServiceAccessBloc, ServiceAccessState>(
+              builder: (context, state) {
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: _hasSearched
+                      ? _buildSearchResult(config, state)
+                      : ServiceAccessSearchEmptyState(
+                    key: ValueKey('directory-empty-${widget.serviceTitle}'),
+                    title: config.emptyTitle,
+                    description: config.emptyDescription,
+                    icon: ServiceAccessInitialIcon(type: config.type),
+                    height: config.emptyStateHeight,
+                  ),
+                );
+              },
+            )
+          else
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: _hasSearched
+                  ? _buildSearchResult(config)
+                  : ServiceAccessSearchEmptyState(
+                key: ValueKey('directory-empty-${widget.serviceTitle}'),
+                title: config.emptyTitle,
+                description: config.emptyDescription,
+                icon: ServiceAccessInitialIcon(type: config.type),
+                height: config.emptyStateHeight,
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildSearchResult() {
-    final items = _filteredItems;
-    final pageCount = max(1, (items.length / _pageSize).ceil());
+  Widget _buildSearchResult(
+      ServiceAccessSearchConfig config, [
+        ServiceAccessState? fasyankesState,
+      ]) {
+    if (config.isHealthFacility && fasyankesState?.isLoadingList == true) {
+      return _buildLoadingState();
+    }
+
+    if (config.isHealthFacility && fasyankesState?.hasSearched != true) {
+      return _buildLoadingState();
+    }
+
+    if (config.isHealthFacility && fasyankesState?.hasListError == true) {
+      return _buildErrorState(fasyankesState!.listErrorMessage);
+    }
+
+    final sourceItems = config.isHealthFacility
+        ? _facilityItemsFromState(fasyankesState ?? ServiceAccessState.initial())
+        : _searchMatchedItems;
+    final items = config.isHealthFacility
+        ? _filterItemsByCategory(sourceItems)
+        : _filteredItems;
+    final useApiPagination = config.isHealthFacility;
+    final pageCount = useApiPagination
+        ? max(1, _currentPage + ((fasyankesState?.hasNextPage ?? false) ? 1 : 0))
+        : max(1, (items.length / _pageSize).ceil());
     final safePage = min(_currentPage, pageCount);
     final startIndex = (safePage - 1) * _pageSize;
     final endIndex = min(startIndex + _pageSize, items.length);
-    final visibleItems = items.isEmpty
+    final visibleItems = useApiPagination
+        ? items
+        : items.isEmpty
         ? <Map<String, dynamic>>[]
         : items.sublist(startIndex, endIndex);
+
+    if (config.isBpomProductCheck && _searchMatchedItems.isEmpty) {
+      return _buildNoResultState(config);
+    }
 
     return Column(
       key: ValueKey('directory-result-${widget.serviceTitle}'),
@@ -626,7 +860,7 @@ class _ServiceAccessSearchContentState
         ),
         const SizedBox(height: 4),
         Text(
-          _searchKeyword,
+          _searchKeyword.isEmpty ? 'Semua fasilitas kesehatan' : _searchKeyword,
           style: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
@@ -634,30 +868,16 @@ class _ServiceAccessSearchContentState
           ),
         ),
         const SizedBox(height: 18),
-        Row(
-          children: [
-            Expanded(
-              child: ServiceAccessSearchActionButton(
-                label: 'Filter',
-                icon: Icons.filter_alt_outlined,
-                onTap: () {},
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ServiceAccessSearchActionButton(
-                label: 'Terbaru',
-                icon: Icons.keyboard_arrow_down,
-                onTap: () {},
-              ),
-            ),
-          ],
+        FilterSortRow(
+          sortLabel: 'Terbaru',
+          onFilterTap: () {},
+          onSortTap: () {},
         ),
         const SizedBox(height: 18),
-        _buildCategoryList(),
+        _buildCategoryList(sourceItems),
         const SizedBox(height: 8),
         if (visibleItems.isEmpty)
-          _buildNoResultState()
+          _buildNoResultState(config)
         else
           ListView.separated(
             padding: EdgeInsets.zero,
@@ -666,53 +886,129 @@ class _ServiceAccessSearchContentState
             physics: const NeverScrollableScrollPhysics(),
             separatorBuilder: (_, __) => const SizedBox(height: 16),
             itemBuilder: (context, index) {
-              return _buildResultCard(visibleItems[index]);
+              return ServiceAccessResultCard(
+                type: config.type,
+                item: visibleItems[index],
+                onItemTap: widget.onItemTap,
+                onCopyRegistrationNumber: _copyRegistrationNumber,
+              );
             },
           ),
         if (visibleItems.isNotEmpty && pageCount > 1) ...[
           const SizedBox(height: 24),
-          _buildPagination(pageCount),
+          AppPagination(
+            currentPage: _currentPage,
+            totalPages: pageCount,
+            onPageChanged: (page) => _changePage(page, pageCount),
+          ),
         ],
         const SizedBox(height: 16),
       ],
     );
   }
 
-  Widget _buildCategoryList() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
+  Widget _buildLoadingState() {
+    return const Center(
+      key: ValueKey('facility-loading-state'),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 70),
+        child: CircularProgressIndicator(
+          color: Color(0xFF062F5E),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String message) {
+    return Container(
+      key: const ValueKey('facility-error-state'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE5E5E5)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (int index = 0; index < _categories.length; index++) ...[
-            ServiceAccessCategoryChip(
-              label: _categories[index],
-              count: _getCategoryCount(_categories[index]),
-              selected: _selectedCategory == _categories[index],
-              onTap: () {
-                _selectCategory(_categories[index]);
-              },
+          const Text(
+            'Gagal memuat fasilitas kesehatan',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF252525),
             ),
-            if (index != _categories.length - 1)
-              const SizedBox(width: 10),
-          ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.5,
+              color: Color(0xFF666666),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: OutlinedButton.icon(
+              onPressed: _retryFacilitySearch,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Coba lagi'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF062F5E),
+                side: const BorderSide(color: Color(0xFFE0E0E0)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildNoResultState() {
-    final itemLabel = _isDoctor ? 'dokter' : 'fasilitas';
-    final title = _isDoctor
-        ? 'Dokter tidak ditemukan'
-        : 'Fasilitas tidak ditemukan';
+  Widget _buildCategoryList(List<Map<String, dynamic>> sourceItems) {
+    final categories = _categoriesFromItems(sourceItems);
+
+    return FilterChipsRow(
+      chips: categories.map((category) {
+        return FilterChipItem(
+          key: category,
+          label: category,
+          count: _getCategoryCount(category, sourceItems),
+        );
+      }).toList(),
+      selectedKey: _selectedCategory,
+      onSelected: _selectCategory,
+    );
+  }
+
+  Widget _buildNoResultState(ServiceAccessSearchConfig config) {
+    if (config.isBpomProductCheck) {
+      return const ServiceAccessSearchEmptyState(
+        key: ValueKey('bpom-no-result-state'),
+        title: 'Hasil tidak ditemukan',
+        description: 'Gunakan kata kunci pencarian lainnya.',
+        icon: Icon(
+          Icons.search,
+          size: 26,
+          color: Color(0xFF062F5E),
+        ),
+        height: 330,
+      );
+    }
 
     return ServiceAccessSearchEmptyState(
       key: ValueKey(
         'directory-no-result-${widget.serviceTitle}-$_selectedCategory-$_searchKeyword',
       ),
-      title: title,
+      title: config.noResultTitle,
       description:
-      'Tidak ada $itemLabel pada kategori $_selectedCategory yang sesuai dengan pencarian.',
+      'Tidak ada ${config.noResultItemLabel} pada kategori $_selectedCategory yang sesuai dengan pencarian.',
       icon: const Icon(
         Icons.search_off_outlined,
         size: 23,
@@ -720,555 +1016,6 @@ class _ServiceAccessSearchContentState
       ),
       boxed: true,
       height: 250,
-    );
-  }
-
-  Widget _buildResultCard(Map<String, dynamic> item) {
-    if (_isDoctor) {
-      return _buildDoctorCard(item);
-    }
-
-    return _buildFacilityCard(item);
-  }
-
-  Widget _buildDoctorCard(Map<String, dynamic> doctor) {
-    final registrationNumber = doctor['registrationNumber'] as String? ?? '-';
-
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: () {
-          widget.onItemTap(doctor);
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: const Color(0xFFE5E5E5),
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F5F5),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Center(
-                      child: FaIcon(
-                        FontAwesomeIcons.stethoscope,
-                        size: 19,
-                        color: Color(0xFF333333),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  const Icon(
-                    Icons.north_east,
-                    size: 17,
-                    color: Color(0xFF062F5E),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'Tenaga Medis',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF777777),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                doctor['name'] as String? ?? '-',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF164775),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Surat Tanda Registrasi',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF777777),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      registrationNumber,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF164775),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      _copyRegistrationNumber(registrationNumber);
-                    },
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 30,
-                      minHeight: 30,
-                    ),
-                    icon: const Icon(
-                      Icons.copy_outlined,
-                      size: 17,
-                      color: Color(0xFF164775),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'Spesialis',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF777777),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                doctor['specialization'] as String? ?? '-',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF164775),
-                ),
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'Jadwal Praktik',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF777777),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      doctor['schedule'] as String? ?? '-',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF164775),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE9F8E9),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      doctor['status'] as String? ?? '-',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF2E9E4F),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'Tempat Praktik',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF777777),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          doctor['hospital'] as String? ?? '-',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            height: 1.4,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF164775),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          doctor['city'] as String? ?? '-',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFFAAAAAA),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Icon(
-                    Icons.location_on_outlined,
-                    size: 20,
-                    color: Color(0xFFAAAAAA),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'No. Telepon',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF777777),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      doctor['phone'] as String? ?? '-',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF164775),
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.phone_outlined,
-                    size: 19,
-                    color: Color(0xFFAAAAAA),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFacilityCard(Map<String, dynamic> facility) {
-    final acceptsBpjs = facility['bpjs'] == true;
-
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: () {
-          widget.onItemTap(facility);
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: const Color(0xFFE5E5E5),
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F5F5),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Center(
-                      child: FaIcon(
-                        FontAwesomeIcons.hospital,
-                        size: 20,
-                        color: Color(0xFF333333),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  const Icon(
-                    Icons.north_east,
-                    size: 17,
-                    color: Color(0xFF062F5E),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Text(
-                facility['type'] as String? ?? '-',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF777777),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      facility['name'] as String? ?? '-',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF062F5E),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: acceptsBpjs
-                          ? const Color(0xFFEAF3FF)
-                          : const Color(0xFFF4F4F4),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      acceptsBpjs ? 'BPJS' : 'Non BPJS',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: acceptsBpjs
-                            ? const Color(0xFF2471D9)
-                            : const Color(0xFF444444),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Alamat',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF777777),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      facility['address'] as String? ?? '-',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF164775),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Icon(
-                    Icons.location_on_outlined,
-                    size: 20,
-                    color: Color(0xFFAAAAAA),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                facility['distance'] as String? ?? '-',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF2E9E4F),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'No. Telepon',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF777777),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      facility['phone'] as String? ?? '-',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF164775),
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.phone_outlined,
-                    size: 19,
-                    color: Color(0xFFAAAAAA),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPagination(int pageCount) {
-    final visiblePages = <int>{
-      1,
-      pageCount,
-      _currentPage - 1,
-      _currentPage,
-      _currentPage + 1,
-    }.where((page) => page >= 1 && page <= pageCount).toList()
-      ..sort();
-
-    final pageWidgets = <Widget>[];
-
-    for (int index = 0; index < visiblePages.length; index++) {
-      final page = visiblePages[index];
-
-      if (index > 0 && page - visiblePages[index - 1] > 1) {
-        pageWidgets.add(
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              '...',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF333333),
-              ),
-            ),
-          ),
-        );
-      }
-
-      pageWidgets.add(
-        _buildPageButton(
-          page: page,
-          pageCount: pageCount,
-        ),
-      );
-    }
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildPaginationIcon(
-          icon: Icons.keyboard_double_arrow_left,
-          onTap: _currentPage > 1
-              ? () => _changePage(1, pageCount)
-              : null,
-        ),
-        _buildPaginationIcon(
-          icon: Icons.keyboard_arrow_left,
-          onTap: _currentPage > 1
-              ? () => _changePage(_currentPage - 1, pageCount)
-              : null,
-        ),
-        ...pageWidgets,
-        _buildPaginationIcon(
-          icon: Icons.keyboard_arrow_right,
-          onTap: _currentPage < pageCount
-              ? () => _changePage(_currentPage + 1, pageCount)
-              : null,
-        ),
-        _buildPaginationIcon(
-          icon: Icons.keyboard_double_arrow_right,
-          onTap: _currentPage < pageCount
-              ? () => _changePage(pageCount, pageCount)
-              : null,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPageButton({
-    required int page,
-    required int pageCount,
-  }) {
-    final selected = page == _currentPage;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 3),
-      child: InkWell(
-        onTap: () => _changePage(page, pageCount),
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          width: 32,
-          height: 32,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(6),
-            border: selected
-                ? Border.all(
-              color: const Color(0xFF555555),
-            )
-                : null,
-          ),
-          child: Text(
-            page.toString(),
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: selected
-                  ? const Color(0xFF252525)
-                  : const Color(0xFF333333),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPaginationIcon({
-    required IconData icon,
-    required VoidCallback? onTap,
-  }) {
-    return IconButton(
-      onPressed: onTap,
-      visualDensity: VisualDensity.compact,
-      icon: Icon(
-        icon,
-        size: 18,
-        color: onTap == null
-            ? const Color(0xFFBBBBBB)
-            : const Color(0xFF333333),
-      ),
     );
   }
 }

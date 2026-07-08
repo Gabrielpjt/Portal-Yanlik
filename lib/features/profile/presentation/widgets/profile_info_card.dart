@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-
 import '../../../../app/theme/app_colors.dart';
 
 class ProfileInfoCard extends StatelessWidget {
   final String name;
   final String joinDate;
-  final String? avatarUrl;
+  final String avatarUrl;
 
   const ProfileInfoCard({
     super.key,
     required this.name,
     required this.joinDate,
-    this.avatarUrl,
+    required this.avatarUrl,
   });
 
   @override
@@ -21,18 +20,16 @@ class ProfileInfoCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: Row(
         children: [
+          // Avatar with verified badge
           Stack(
             children: [
               Container(
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: AppColors.backgroundSecondary,
                   shape: BoxShape.circle,
-                  image: avatarUrl == null || avatarUrl!.isEmpty
-                      ? null
-                      : DecorationImage(
-                    image: NetworkImage(avatarUrl!),
+                  image: DecorationImage(
+                    image: NetworkImage(avatarUrl),
                     fit: BoxFit.cover,
                   ),
                   border: Border.all(
@@ -40,13 +37,6 @@ class ProfileInfoCard extends StatelessWidget {
                     width: 1,
                   ),
                 ),
-                child: avatarUrl == null || avatarUrl!.isEmpty
-                    ? const Icon(
-                  Icons.person,
-                  color: AppColors.contentSecondary,
-                  size: 32,
-                )
-                    : null,
               ),
               Positioned(
                 bottom: 0,
@@ -67,12 +57,14 @@ class ProfileInfoCard extends StatelessWidget {
             ],
           ),
           const SizedBox(width: 14),
+
+          // Name + join date
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  name.isEmpty ? 'Pengguna' : name,
+                  name,
                   style: const TextStyle(
                     color: AppColors.contentPrimary,
                     fontSize: 18,

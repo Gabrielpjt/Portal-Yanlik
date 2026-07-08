@@ -10,10 +10,10 @@ import '../../domain/entities/user_profile_entity.dart';
 import '../bloc/profile_bloc.dart';
 import '../bloc/profile_event.dart';
 import '../bloc/profile_state.dart';
-import '../widgets/profile_info_card.dart';
-import '../widgets/profile_benefit_section.dart';
 import '../widgets/profile_detail_akun_tab.dart';
 import '../widgets/profile_e_dokumen_tab.dart';
+import '../widgets/profile_info_card.dart';
+import '../widgets/profile_settings_tab.dart';
 import '../widgets/profile_status_tab.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -38,14 +38,21 @@ class _ProfilePageState extends State<ProfilePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  static const int _tabLength = 4;
+
+  int _safeTabIndex(int index) {
+    if (index < 0 || index >= _tabLength) return 0;
+    return index;
+  }
+
   @override
   void initState() {
     super.initState();
 
     _tabController = TabController(
-      length: 3,
+      length: _tabLength,
       vsync: this,
-      initialIndex: widget.initialTabIndex,
+      initialIndex: _safeTabIndex(widget.initialTabIndex),
     );
   }
 
@@ -54,7 +61,7 @@ class _ProfilePageState extends State<ProfilePage>
     super.didUpdateWidget(oldWidget);
 
     if (oldWidget.initialTabIndex != widget.initialTabIndex) {
-      _tabController.animateTo(widget.initialTabIndex);
+      _tabController.animateTo(_safeTabIndex(widget.initialTabIndex));
     }
   }
 
@@ -116,7 +123,6 @@ class _ProfilePageState extends State<ProfilePage>
                   isLoggedIn: true,
                   showLoginButton: false,
                 ),
-
                 Expanded(
                   child: ListView(
                     padding: EdgeInsets.zero,
@@ -134,29 +140,24 @@ class _ProfilePageState extends State<ProfilePage>
                           ],
                         ),
                       ),
-
                       ProfileInfoCard(
                         name: _displayName(profile),
                         joinDate: isLoading
                             ? 'Memuat data akun...'
                             : 'Data akun dari server',
-                        avatarUrl: null,
+                        avatarUrl: '',
                       ),
-
                       if (isLoading)
                         const LinearProgressIndicator(
                           minHeight: 2,
                           color: AppColors.brandPrimary,
                           backgroundColor: AppColors.backgroundSecondary,
                         ),
-
                       const SizedBox(height: 8),
-
                       _buildTabSection(
                         context: context,
                         profile: profile,
                       ),
-
                       const AppFooter(),
                     ],
                   ),
@@ -179,13 +180,22 @@ class _ProfilePageState extends State<ProfilePage>
           color: Colors.white,
           child: TabBar(
             controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            padding: EdgeInsets.zero,
+            labelPadding: const EdgeInsets.only(left: 16, right: 16),
             labelColor: AppColors.guide600,
             unselectedLabelColor: AppColors.contentSecondary,
             indicatorColor: AppColors.guide600,
             indicatorWeight: 2.5,
+            indicatorSize: TabBarIndicatorSize.label,
             labelStyle: const TextStyle(
               fontSize: 13,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w800,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
             tabs: const [
               Tab(
@@ -230,24 +240,35 @@ class _ProfilePageState extends State<ProfilePage>
                   ],
                 ),
               ),
+              Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.settings_outlined,
+                      size: 18,
+                    ),
+                    SizedBox(width: 6),
+                    Text('Pengaturan'),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
-
         const SizedBox(height: 8),
-
         AnimatedBuilder(
           animation: _tabController,
-          builder: (_, __) {
+          builder: (context, _) {
             switch (_tabController.index) {
               case 1:
                 return const ProfileEDokumenTab();
-
               case 2:
                 return ProfileStatusTab(
                   onMenuTap: widget.onMenuTap,
                 );
-
+              case 3:
+                return const ProfileSettingsTab();
               default:
                 return ProfileDetailAkunTab(
                   profile: profile,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../kategori_layanan/domain/entities/kategori_layanan_entity.dart';
 import 'service_category_card.dart';
@@ -6,35 +7,45 @@ import 'service_category_card.dart';
 class ServiceCategoryList extends StatelessWidget {
   final List<KategoriLayananEntity> categories;
   final ValueChanged<String>? onServiceTap;
+  final Map<String, GlobalKey>? categoryKeys;
 
   const ServiceCategoryList({
     super.key,
     required this.categories,
     this.onServiceTap,
+    this.categoryKeys,
   });
+
+  int get _totalLayanan {
+    return categories.fold<int>(
+      0,
+          (total, category) => total + category.jumlahLayanan,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Scrollable Filter Chips
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              _buildActiveChip('Semua', '${categories.length}'),
-              ...categories.take(4).map((cat) {
-                return Padding(
+              _buildActiveChip('Semua', '$_totalLayanan'),
+              ...categories.take(4).map(
+                    (category) => Padding(
                   padding: const EdgeInsets.only(left: 8),
-                  child: _buildInactiveChip(cat.nama, '${cat.jumlahLayanan}'),
-                );
-              }),
+                  child: _buildInactiveChip(
+                    category.nama,
+                    '${category.jumlahLayanan}',
+                  ),
+                ),
+              ),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        // Info Banner
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -67,25 +78,29 @@ class ServiceCategoryList extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        // Category Cards
         ...categories.map(
-          (category) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: ServiceCategoryCard(
-              title: category.nama,
-              count: '${category.jumlahLayanan} Layanan',
-              description: 'Layanan dan Program',
-              services: category.layanan
-                  .map<Map<String, String>>((e) => {
-                        'name': e.nama,
-                        'type': 'Layanan',
-                      })
-                  .toList(),
-              programs: const [],
-              isActive: false,
-              onItemTap: (serviceTitle) {
-                onServiceTap?.call(serviceTitle);
-              },
+              (category) => Container(
+            key: categoryKeys?[category.nama],
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: ServiceCategoryCard(
+                title: category.nama,
+                count: '${category.jumlahLayanan} Layanan',
+                description: 'Layanan dan Program',
+                services: category.layanan
+                    .map<Map<String, String>>(
+                      (layanan) => {
+                    'name': layanan.nama,
+                    'type': 'Layanan',
+                  },
+                )
+                    .toList(),
+                programs: const [],
+                isActive: false,
+                onItemTap: (serviceTitle) {
+                  onServiceTap?.call(serviceTitle);
+                },
+              ),
             ),
           ),
         ),

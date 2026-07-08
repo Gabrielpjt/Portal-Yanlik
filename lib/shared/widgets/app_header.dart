@@ -6,6 +6,7 @@ import '../navigation/main_navigation_controller.dart';
 class AppHeader extends StatelessWidget {
   final VoidCallback? onMenuTap;
   final VoidCallback? onLoginTap;
+  final VoidCallback? onNotificationTap;
   final bool isLoggedIn;
   final bool showLoginButton;
 
@@ -13,6 +14,7 @@ class AppHeader extends StatelessWidget {
     super.key,
     this.onMenuTap,
     this.onLoginTap,
+    this.onNotificationTap,
     this.isLoggedIn = false,
     this.showLoginButton = true,
   });
@@ -152,52 +154,63 @@ class AppHeader extends StatelessWidget {
               const SizedBox(width: 10),
 
               // Notification Bell
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF1F5F9),
-                      shape: BoxShape.circle,
+              InkWell(
+                onTap: () {
+                  final controller = MainNavigationController.instance;
+                  if (controller.isAttached) {
+                    controller.goNotifications();
+                    return;
+                  }
+                  onNotificationTap?.call();
+                },
+                borderRadius: BorderRadius.circular(18),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF1F5F9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.notifications_none_rounded,
+                        color: AppColors.brandPrimary,
+                        size: 19,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.notifications_none_rounded,
-                      color: AppColors.brandPrimary,
-                      size: 19,
-                    ),
-                  ),
 
-                  Positioned(
-                    top: -3,
-                    right: -4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEE2E2),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 1.5,
+                    Positioned(
+                      top: -3,
+                      right: -4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
                         ),
-                      ),
-                      child: const Text(
-                        '9+',
-                        style: TextStyle(
-                          color: Color(0xFFDC2626),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          height: 1,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: const Text(
+                          '9+',
+                          style: TextStyle(
+                            color: Color(0xFFDC2626),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            height: 1,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
 

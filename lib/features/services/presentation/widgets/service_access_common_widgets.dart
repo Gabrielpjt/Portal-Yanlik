@@ -217,7 +217,7 @@ class ServiceAccessSearchEmptyState extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 22,
+              fontSize: 20,
               height: 1.3,
               fontWeight: FontWeight.w700,
               color: Color(0xFF252525),
@@ -399,7 +399,7 @@ class ServiceAccessSectionTitle extends StatelessWidget {
     return Text(
       title,
       style: const TextStyle(
-        fontSize: 22,
+        fontSize: 20,
         height: 1.3,
         fontWeight: FontWeight.w800,
         color: Color(0xFF252525),
@@ -408,16 +408,14 @@ class ServiceAccessSectionTitle extends StatelessWidget {
   }
 }
 
-class ServiceAccessInformationItem extends StatelessWidget {
-  final String label;
-  final String value;
-  final String? secondaryValue;
+class ServiceAccessInfoSection extends StatelessWidget {
+  final String title;
+  final List<ServiceAccessInfoTile> children;
 
-  const ServiceAccessInformationItem({
+  const ServiceAccessInfoSection({
     super.key,
-    required this.label,
-    required this.value,
-    this.secondaryValue,
+    required this.title,
+    required this.children,
   });
 
   @override
@@ -425,38 +423,114 @@ class ServiceAccessInformationItem extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (label.isNotEmpty) ...[
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF888888),
-              fontWeight: FontWeight.w400,
+        ServiceAccessSectionTitle(title: title),
+        const SizedBox(height: 16),
+
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: const Color(0xFFE6E6E6),
             ),
+            borderRadius: BorderRadius.circular(14),
           ),
-          const SizedBox(height: 6),
-        ],
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 13,
-            height: 1.4,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF333333),
+          child: Column(
+            children: List.generate(
+              children.length,
+                  (index) {
+                return Column(
+                  children: [
+                    children[index],
+                    if (index != children.length - 1)
+                      const Divider(
+                        height: 1,
+                        thickness: .5,
+                      ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
-        if (secondaryValue != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            secondaryValue!,
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1.4,
-              color: Color(0xFF888888),
+      ],
+    );
+  }
+}
+
+class ServiceAccessInfoTile extends StatelessWidget {
+  final String label;
+  final Widget child;
+  final Widget? trailing;
+
+  const ServiceAccessInfoTile({
+    super.key,
+    required this.label,
+    required this.child,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF888888),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                child,
+              ],
             ),
           ),
+          if (trailing != null) trailing!,
         ],
-      ],
+      ),
+    );
+  }
+}
+
+class ServiceAccessStatusBadge extends StatelessWidget {
+  final String text;
+  final Color backgroundColor;
+  final Color textColor;
+
+  const ServiceAccessStatusBadge({
+    super.key,
+    required this.text,
+    required this.backgroundColor,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: textColor,
+        ),
+      ),
     );
   }
 }
